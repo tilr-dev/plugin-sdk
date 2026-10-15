@@ -16,8 +16,8 @@
 //   pack     npm pack --dry-run, unless the package is private
 //
 // --no-runtime (or $TILR_NO_RUNTIME=1) skips the steps that need the core page (site/) or a web
-// checkout: api, e2e, pack (RUNTIME_STEPS). The SDK's CI runs so until web is on GitHub; unit
-// tests that need site/ skip themselves when it is missing.
+// checkout: api, e2e, pack (RUNTIME_STEPS). Unit tests that need site/ skip themselves when it is
+// missing. (The SDK's own CI has site/ committed and runs `--full --skip api`.)
 //
 // The first failing step stops the run (exit 1). A step whose script the repo does not have is
 // skipped. Configs: the repo's own (.jscpd.json, knip.json, commitlint.config.js), else this
