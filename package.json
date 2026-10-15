@@ -8,6 +8,21 @@
   "description": "The kit for writing Tilr plugins in their own repos: the plugin API's types, the shared build and CLI (tilr-plugin), the e2e harness with the built core page, shared tsconfig, eslint and Playwright config, and the repo standard's checks (tilr-plugin verify) with their presets (Biome, lefthook, commitlint, jscpd, knip).",
   "license": "MIT OR Apache-2.0",
   "author": "Denis Shirokov",
+  "homepage": "https://github.com/tilr-dev/plugin-sdk#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tilr-dev/plugin-sdk.git"
+  },
+  "bugs": {
+    "url": "https://github.com/tilr-dev/plugin-sdk/issues"
+  },
+  "keywords": [
+    "tilr",
+    "tilr-plugin",
+    "plugin",
+    "sdk",
+    "cordis"
+  ],
   "publishConfig": {
     "access": "public"
   },
