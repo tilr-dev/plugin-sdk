@@ -7,6 +7,9 @@ the version is 0.x, a minor bump may break plugins (`^0.1.0` accepts 0.1.x only)
 
 ## Unreleased
 
+Removed: the `tilr` bin (`ctl`, `mcp`, app/plugin workspace commands), bench, memory, browser
+tools — not part of the plugin SDK. The SDK keeps what a plugin author needs (`tilr-plugin`).
+
 The repo standard (one pipeline for the SDK and every plugin repo):
 
 - `tilr-plugin verify [--full]`: format (Biome, format only), lint, types, api, unit, dupes

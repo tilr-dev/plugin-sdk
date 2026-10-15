@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // `tilr-plugin`: the commands of a plugin repo, the same in every one (its package.json scripts
-// call these). Shipped as a bin of @tilr-dev/plugin, next to `tilr` (the app's command).
+// call these). Shipped as the bin of @tilr-dev/plugin.
 //
 //   tilr-plugin build [--watch] [--install] [--site DIR]
 //                     build into dist/: the repo's build.mjs when it has one (run with these

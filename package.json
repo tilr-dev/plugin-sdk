@@ -5,14 +5,13 @@
   "engines": {
     "node": ">=22.18"
   },
-  "description": "The kit for writing Tilr plugins in their own repos: the plugin API's types, the shared build and CLI (tilr-plugin, tilr), the e2e harness with the built core page, shared tsconfig, eslint and Playwright config, and the repo standard's checks (tilr-plugin verify) with their presets (Biome, lefthook, commitlint, jscpd, knip).",
+  "description": "The kit for writing Tilr plugins in their own repos: the plugin API's types, the shared build and CLI (tilr-plugin), the e2e harness with the built core page, shared tsconfig, eslint and Playwright config, and the repo standard's checks (tilr-plugin verify) with their presets (Biome, lefthook, commitlint, jscpd, knip).",
   "license": "MIT OR Apache-2.0",
   "author": "Denis Shirokov",
   "publishConfig": {
     "access": "public"
   },
   "bin": {
-    "tilr": "tools/tilr.mjs",
     "tilr-plugin": "tools/tilr-plugin.mjs"
   },
   "exports": {

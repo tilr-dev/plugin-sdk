@@ -3,7 +3,10 @@
 useDefault = true
 
 [[allowlists]]
-description = "bench metric keys in tests (typing.keyToPaint.p95) match generic-api-key"
+# tools/bench.test.mjs is gone (moved out of the SDK), but verify and CI scan the whole history.
+description = "bench metric keys (typing.keyToPaint.p95) in the history's tools/bench.test.mjs match generic-api-key"
 targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''^tools/bench\.test\.mjs$''']
 regexTarget = "match"
 regexes = ['''typing\.[A-Za-z]+\.p\d+''']

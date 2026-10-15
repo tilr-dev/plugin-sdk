@@ -148,11 +148,8 @@ The site is `--site DIR`, else `$TILR_SITE`, else `site:` in the app's `config.y
 own folder, merges `plugins.json`, writes atomically and only what changed (the app hot-reloads
 it), and refuses a site without the core page.
 
-`tilr` manages apps (a workspace folder with `tilr.json`, git clones of its plugins and the
-`site/` the shell shows) and drives the running app: `tilr app new|export`, `tilr plugin
-add|update|build|remove|status`, `tilr build`, `tilr dev`, `tilr ctl …` (Tilr Control: windows,
-plugins, eval, ui, debug, bench, memory) and `tilr mcp` (the same as an MCP server). Run `tilr`
-for the full usage.
+The app-control CLI and MCP server (`tilr ctl`, `tilr mcp`, app workspaces) and the bench and
+memory tools live outside the SDK; they will become a separate package.
 
 ## Testing a plugin
 
@@ -193,8 +190,8 @@ simulate a change on disk. `tilr(page)` has `open`, `list`, `row`, `hmr`, `toggl
 ```text
 api/            the plugin API's declarations (committed; the contract)
 test/harness.ts the e2e harness → dist/test/ (npm run build)
-tools/          build-plugin, tilr-plugin, tilr (+ control, bench, memory, tilr-mcp), install-site,
-                node-resolve, playwright, global-setup; *.test.mjs are their unit tests
+tools/          build-plugin, tilr-plugin, verify, install-site, paths, node-resolve, playwright,
+                global-setup; *.test.mjs are their unit tests
 scripts/        sync-runtime.mjs (site/ from web), api-sync.mjs (api/ against web), prepare.mjs (git hooks)
 presets/        biome, lefthook, commitlint, jscpd, knip: shipped, and used by this repo too
 templates/      plugin/: the files every plugin repo has (shipped, for `tilr-plugin init`)
