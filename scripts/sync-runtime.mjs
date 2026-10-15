@@ -23,6 +23,8 @@ import { PKG, ROOT, webDir, webVersion } from './web.mjs'
 
 const SITE = join(ROOT, 'site')
 const STAMP = join(SITE, '.sync.json')
+/** How much of the web commit the log shows (git's short hash). */
+const SHORT_SHA_LENGTH = 7
 // What the harness, the resolve hook and the `tilr` bin need from the page.
 const REQUIRED = [
   'index.html',
@@ -88,7 +90,7 @@ function sync() {
   }
   writeFileSync(STAMP, `${JSON.stringify(stamp, null, 2)}\n`)
   console.log(
-    `[sync] ${from} → site/ (${version}, web ${stamp.commit?.slice(0, 7) ?? '?'}${stamp.dirty ? ', dirty' : ''})`,
+    `[sync] ${from} → site/ (${version}, web ${stamp.commit?.slice(0, SHORT_SHA_LENGTH) ?? '?'}${stamp.dirty ? ', dirty' : ''})`,
   )
   check()
 }

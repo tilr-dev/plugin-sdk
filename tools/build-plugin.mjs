@@ -73,6 +73,13 @@ const junk = name => name.startsWith('.') || name.endsWith('~') || /^\d+$/.test(
 /** Never sources or assets, should the entry's folder be the repo itself: the dependencies and
  *  the build's own output (which a watch would otherwise rebuild on forever). */
 const generated = path => /^(node_modules|dist)(\/|$)/.test(path.split(sep).join('/'))
+/** major.minor.patch: the parts checkNode() compares. */
+const SEMVER_PARTS = 3
+/** The build log names this many files besides index.js, then "… N more". */
+const MAX_LOGGED_FILES = 12
+const BYTES_PER_KIB = 1024
+/** --watch waits this long after the last change: an editor's save is several events. */
+const WATCH_DEBOUNCE_MS = 30
 
 /** Throws a readable error unless `version` (default: this Node) meets package.json's
  *  `engines.node` (`>=22.18`: type stripping for node --test, recursive fs.watch). */
@@ -81,7 +88,7 @@ export function checkNode(version = process.versions.node, range = KIT_PACKAGE.e
   if (!min) return
   const have = version.replace(/^v/, '').split('.').map(Number)
   const want = min.slice(1).map(n => Number(n ?? 0))
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < SEMVER_PARTS; i++) {
     if ((have[i] ?? 0) > want[i]) return
     if ((have[i] ?? 0) < want[i]) {
       throw new Error(
@@ -456,9 +463,12 @@ async function buildOnce(options, root, state) {
     const written = await files(dist)
     const index = outputs.get('index.js')
     const rest = written.filter(path => path !== 'index.js' && !path.endsWith('.map'))
-    const shown = rest.length > 12 ? [...rest.slice(0, 12), `… ${rest.length - 12} more`] : rest
+    const shown =
+      rest.length > MAX_LOGGED_FILES
+        ? [...rest.slice(0, MAX_LOGGED_FILES), `… ${rest.length - MAX_LOGGED_FILES} more`]
+        : rest
     console.log(
-      `[build] ${Date.now() - started}ms: dist/index.js (${Math.round(index.length / 1024)}K)${shown.map(path => ` dist/${path}`).join('')} (version ${version}, api ^${api})`,
+      `[build] ${Date.now() - started}ms: dist/index.js (${Math.round(index.length / BYTES_PER_KIB)}K)${shown.map(path => ` dist/${path}`).join('')} (version ${version}, api ^${api})`,
     )
     return written
   } finally {
@@ -551,7 +561,7 @@ export async function buildPlugin(options = {}) {
         queued = false
         return closed ? undefined : run()
       })
-    }, 30)
+    }, WATCH_DEBOUNCE_MS)
   }
   const src = join(root, dirname(entryOf(root, options.entry)))
   const ignored = file => file.split(sep).some(junk) || (src === root && generated(file))

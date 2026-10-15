@@ -25,13 +25,22 @@ import tseslint from 'typescript-eslint'
 const TESTS = ['src/**/*.test.ts', 'src/**/*.test.tsx', 'test/**/*.ts', 'playwright.config.ts']
 /** Tests of any kind, .ts or Node .mjs: exempt from the size and magic-number nudges. */
 const ANY_TESTS = [...TESTS, '**/*.test.mjs', '**/*.test.js', '**/*.spec.ts', 'test/**/*.mjs']
-/** 0, 1 and -1 are never magic (an empty length, the next index, "not found"). */
+/** -1, 0, 1 and 2 are never magic ("not found", an empty length, the next index, a pair / half);
+ *  neither are array indexes, default values and class field initializers. A named constant need
+ *  not be a `const` (enforceConst off): `let` and exports are fine. */
 const MAGIC = {
-  ignore: [0, 1, -1],
+  ignore: [-1, 0, 1, 2],
   ignoreArrayIndexes: true,
   ignoreDefaultValues: true,
   ignoreClassFieldInitialValues: true,
+  enforceConst: false,
 }
+
+/** The repo standard's limits (§3): errors for complexity, depth and params, a warning for length. */
+const MAX_COMPLEXITY = 15
+const MAX_DEPTH = 4
+const MAX_PARAMS = 4
+const MAX_LINES = 400
 
 const config = [
   { ignores: ['node_modules/', 'site/', 'api/', 'dist/', 'test-results/', 'playwright-report/'] },
@@ -44,10 +53,10 @@ const config = [
     rules: {
       // Turning a rule off says why: `// eslint-disable-next-line rule -- the reason`.
       '@eslint-community/eslint-comments/require-description': ['error', { ignore: [] }],
-      complexity: ['error', 15],
-      'max-depth': ['error', 4],
-      'max-params': ['error', 4],
-      'max-lines': ['warn', { max: 400, skipBlankLines: true, skipComments: true }],
+      complexity: ['error', MAX_COMPLEXITY],
+      'max-depth': ['error', MAX_DEPTH],
+      'max-params': ['error', MAX_PARAMS],
+      'max-lines': ['warn', { max: MAX_LINES, skipBlankLines: true, skipComments: true }],
       'no-magic-numbers': ['warn', MAGIC],
     },
   },
