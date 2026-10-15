@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Tilr</title>
+<!-- The Tilr page, shown by the Mac and iPad shells from site/ (this file is static/index.html,
+     copied there by build.mjs). Everything on screen is a plugin (plugins/, plugins.json); the
+     look is the theme plugin's CSS. A change under plugins/ hot-swaps just that plugin
+     (runtime.js); a change to any other file reloads the page. -->
+<script type="importmap">
+  { "imports": {
+    "cordis": "./vendor/cordis.js",
+    "@deepseek-ai/cosmokit": "./vendor/cosmokit.js",
+    "tilr": "./tilr.js",
+    "tilr/react": "./tilr/react.js",
+    "tilr/ui": "./tilr/ui.js",
+    "tilr/native": "./tilr/native.js",
+    "react": "./vendor/react.js",
+    "react/jsx-runtime": "./vendor/react-jsx-runtime.js",
+    "react-dom": "./vendor/react-dom.js",
+    "react-dom/client": "./vendor/react-dom.js"
+  } }
+</script>
+<style>
+  /* Only what must hold before, or without, a theme. */
+  body { margin: 0; height: 100dvh; box-sizing: border-box; background: #000; color: #9399b2; font: 13px ui-monospace, Menlo, monospace; }
+</style>
+<main id="grid"></main>
+<script type="module" src="runtime.js"></script>
+</html>

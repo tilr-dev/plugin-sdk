@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["../../../src/plugins/theme-light/index.ts"],
+  "sourcesContent": ["// A second theme to switch to. Same contract as plugins/theme (tokens + base classes), its own\n// look. Switching it on switches the other theme off.\nimport { theme } from 'tilr'\n\nexport default theme(import.meta.url, './light.css', { author: 'tilr', tags: ['light'], version: __TILR_VERSION__ })\n"],
+  "mappings": "AAEA,SAAS,aAAa;AAEtB,IAAO,sBAAQ,MAAM,YAAY,KAAK,eAAe,EAAE,QAAQ,QAAQ,MAAM,CAAC,OAAO,GAAG,SAAS,SAAiB,CAAC;",
+  "names": []
+}

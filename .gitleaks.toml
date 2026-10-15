@@ -10,3 +10,7 @@ condition = "AND"
 paths = ['''^tools/bench\.test\.mjs$''']
 regexTarget = "match"
 regexes = ['''typing\.[A-Za-z]+\.p\d+''']
+
+[[allowlists]]
+description = "site/ is the core page built from web and copied by npm run sync:runtime (bundles, vendored React and cordis, source maps): not this repo's source"
+paths = ['''^site/''']

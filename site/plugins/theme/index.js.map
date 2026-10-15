@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["../../../src/plugins/theme/index.ts"],
+  "sourcesContent": ["// The default theme. All of it is theme.css; this file only turns it into a plugin.\nimport { theme } from 'tilr'\n\nexport default theme(import.meta.url, './theme.css', { author: 'tilr', tags: ['dark'], version: __TILR_VERSION__ })\n"],
+  "mappings": "AACA,SAAS,aAAa;AAEtB,IAAO,gBAAQ,MAAM,YAAY,KAAK,eAAe,EAAE,QAAQ,QAAQ,MAAM,CAAC,MAAM,GAAG,SAAS,SAAiB,CAAC;",
+  "names": []
+}
