@@ -108,11 +108,11 @@ describe('buildPlugin', () => {
     assert.match(js, /from "tilr"/) // the import map's, left as is
     assert.doesNotMatch(js, /from "\.\/helper/) // bundled
     assert.doesNotMatch(js, /__TILR_(VERSION|API)__/)
-    assert.ok(js.includes(`greet("1.2.3", ${JSON.stringify(KIT.version)})`), js)
-    // Without an installed @tilr-dev/plugin the API is this package's own version.
+    assert.ok(js.includes(`greet("1.2.3", ${JSON.stringify(KIT.tilrApi)})`), js)
+    // Without an installed @tilr-dev/plugin the API is this package's own (tilrApi, not version).
     assert.ok(
       js.includes(
-        `export const __tilrBuild = {"version":"1.2.3","api":"^${KIT.version}"};\n//# sourceMappingURL=index.js.map`,
+        `export const __tilrBuild = {"version":"1.2.3","api":"^${KIT.tilrApi}"};\n//# sourceMappingURL=index.js.map`,
       ),
       js,
     )
@@ -124,18 +124,24 @@ describe('buildPlugin', () => {
     )
   })
 
-  test("__TILR_API__ is the installed @tilr-dev/plugin's version", () => {
-    const root = fixture({
-      ...PLUGIN,
-      'node_modules/@tilr-dev/plugin/package.json': JSON.stringify({
-        name: '@tilr-dev/plugin',
-        version: '9.8.7',
-        exports: { './package.json': './package.json' },
-      }),
-    })
+  /** Builds PLUGIN with a @tilr-dev/plugin installed whose package.json has `fields`. */
+  function buildWithKit(fields) {
+    const manifest = { name: '@tilr-dev/plugin', exports: { './package.json': './package.json' }, ...fields }
+    const root = fixture({ ...PLUGIN, 'node_modules/@tilr-dev/plugin/package.json': JSON.stringify(manifest) })
     const r = build(root)
     assert.equal(r.status, 0, r.output)
-    const js = read(root, 'dist/index.js')
+    return { output: r.output, js: read(root, 'dist/index.js') }
+  }
+
+  test("__TILR_API__ is the installed @tilr-dev/plugin's tilrApi, not its package version", () => {
+    const { output, js } = buildWithKit({ version: '9.8.7', tilrApi: '0.4.2' })
+    assert.ok(js.includes('greet("1.2.3", "0.4.2")'), js)
+    assert.ok(js.includes('{"version":"1.2.3","api":"^0.4.2"}'), js)
+    assert.match(output, /\(version 1\.2\.3, api \^0\.4\.2\)/)
+  })
+
+  test("__TILR_API__ is the installed @tilr-dev/plugin's version when it has no tilrApi (an older SDK)", () => {
+    const { js } = buildWithKit({ version: '9.8.7' })
     assert.ok(js.includes('greet("1.2.3", "9.8.7")'), js)
     assert.ok(js.includes('{"version":"1.2.3","api":"^9.8.7"}'), js)
   })

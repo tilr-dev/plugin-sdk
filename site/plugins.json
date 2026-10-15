@@ -1,0 +1,3 @@
+{
+  "plugins": ["store", "open", "theme", "theme-light", "layout", "header", "panel", "counter", "stats", "windows", "webviews", "audio", "sshagent", "performance"]
+}

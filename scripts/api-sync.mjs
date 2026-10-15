@@ -7,13 +7,14 @@
 // TypeScript, into a temp folder (web/ is not written), and compares it with api/ file by file.
 //
 //   (default)  check: exit 1 when api/ differs from what web emits now
-//   --write    replace api/ with the fresh emit; then decide major/minor (README, Versioning)
-//              and add a CHANGELOG entry
+//   --write    replace api/ with the fresh emit; then set package.json `tilrApi` to the API
+//              version web implements, and commit it as feat (or feat! for a break) so
+//              release-please bumps the package (README, Versions)
 import { execFileSync } from 'node:child_process'
 import { cpSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { PKG, ROOT, webDir, webVersion } from './web.mjs'
+import { PKG, ROOT, webApi, webDir } from './web.mjs'
 
 const API = join(ROOT, 'api')
 
@@ -41,17 +42,17 @@ try {
     .sort()
     .filter(name => want[name] !== have[name])
     .map(name => `  api/${name}${name in have ? (name in want ? ' differs' : ' should not exist') : ' is missing'}`)
-  if (webVersion(web) !== PKG.version)
-    console.warn(`[api] note: web is ${webVersion(web)}, this package is ${PKG.version}`)
+  if (webApi(web) !== PKG.tilrApi)
+    console.warn(`[api] note: web implements plugin API ${webApi(web)}, this package's tilrApi is ${PKG.tilrApi}`)
   if (!stale.length) console.log(`[api] api/ matches ${web}`)
   else if (process.argv.includes('--write')) {
     rmSync(API, { recursive: true, force: true })
     cpSync(fresh, API, { recursive: true })
-    console.log(`[api] api/ updated from ${web}:\n${stale.join('\n')}\nDecide major/minor and add a CHANGELOG entry.`)
-  } else {
-    console.error(
-      `[api] api/ is out of date with ${web}: run npm run api:sync and decide major/minor\n${stale.join('\n')}`,
+    console.log(
+      `[api] api/ updated from ${web}:\n${stale.join('\n')}\nSet tilrApi to web's API version and commit as feat (feat! for a break).`,
     )
+  } else {
+    console.error(`[api] api/ is out of date with ${web}: run npm run api:sync and bump tilrApi\n${stale.join('\n')}`)
     process.exitCode = 1
   }
 } finally {

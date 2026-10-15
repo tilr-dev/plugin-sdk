@@ -1,6 +1,7 @@
 {
   "name": "@tilr-dev/plugin",
   "version": "0.1.14",
+  "tilrApi": "0.1.14",
   "type": "module",
   "engines": {
     "node": ">=22.18"
@@ -104,7 +105,7 @@
     "check": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json && eslint .",
     "format": "biome format --write .",
     "test": "npm run test:unit",
-    "test:unit": "node --test \"tools/*.test.mjs\"",
+    "test:unit": "node --test \"tools/*.test.mjs\" \"scripts/*.test.mjs\"",
     "verify": "node tools/tilr-plugin.mjs verify",
     "verify:full": "node tools/tilr-plugin.mjs verify --full",
     "sync:runtime": "node scripts/sync-runtime.mjs",

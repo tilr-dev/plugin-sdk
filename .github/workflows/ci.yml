@@ -1,10 +1,9 @@
-# TODO: when tilr-dev/web is on GitHub, restore sync:runtime/api:check/pack/e2e (README, Releasing):
-# check out web next to the SDK, `npm run sync:runtime -- --build` with TILR_WEB_DIR, and run
-# `npm run verify:full` without --no-runtime.
-#
-# The SDK's CI: `tilr-plugin verify --full --no-runtime` on every PR and every push to master
-# (repo standard, §9). --no-runtime skips the steps that need the core page (site/) or a web
-# checkout (api, e2e, pack); the unit tests that need site/ skip themselves without it.
+# The SDK's CI: `tilr-plugin verify --full --skip api` on every PR and every push to master
+# (repo standard, §9). site/ (the core page) is committed, so everything runs without a web
+# checkout (format, lint, types, unit with the site/ tests, dupes, unused, secrets, deps, pack)
+# except `api` (npm run api:check), which emits api/ from web's sources: run it locally with a
+# web checkout (README, Keeping api/ and site/ in sync). The job names stay as the master ruleset
+# requires them ("verify (node N, no runtime)": no web runtime checkout).
 # Only `pull_request` (never pull_request_target): a PR's code runs without secrets.
 name: ci
 
@@ -51,4 +50,5 @@ jobs:
           GITLEAKS_VERSION: 8.30.1
           GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
       - run: npm ci
-      - run: npm run verify -- --full --no-runtime
+      # api:check needs web's sources (not on GitHub); everything else runs.
+      - run: npm run verify -- --full --skip api

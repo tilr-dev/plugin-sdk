@@ -30,7 +30,8 @@ you commit is published. README.md says what is where; docs/ has the details.
 - An `eslint-disable` needs a description: `// eslint-disable-next-line rule -- why`. An unused
   one is an error. Disable one line for a real reason, never a file to make a warning go away.
 - `api/` is the plugin contract: it changes only through `npm run api:sync` from the core repo,
-  with a version bump and a CHANGELOG entry (README, Keeping api/ and site/ in sync).
+  with a `tilrApi` bump in a `feat` commit (README, Keeping api/ and site/ in sync, Versions).
+  `site/` changes only through `npm run sync:runtime`. CHANGELOG.md is release-please's.
 - What ships to plugin repos (`presets/`, `eslint.base.js`, `templates/`, `tools/verify.mjs`)
   changes every plugin's checks: say so in the CHANGELOG.
 
