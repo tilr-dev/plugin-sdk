@@ -71,7 +71,7 @@ test('under the hook, dist/index.js imports the real SDK modules', { skip: NO_SI
     helpers: { optional: 'function', onLayout: 'function', element: 'function', frame: 'function' },
     stamp: {
       version: '1.2.3',
-      api: '^' + JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version,
+      api: '^' + JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).tilrApi,
     },
   })
 })
