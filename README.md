@@ -107,7 +107,7 @@ export default definePlugin({
   copies to `dist/api.d.ts`.
 - What must survive a reload goes to the store (`inject: ['store']`), not localStorage.
 - `version` and `api` may be left out: the build stamps package.json's version and `^` + this
-  package's version (the API the plugin was built against). `requires: { counter: '^1.2.0' }`
+  package's plugin API version, its `tilrApi` (the API the plugin was built against; see Versions). `requires: { counter: '^1.2.0' }`
   checks a provider's version. On a mismatch the plugin is `incompatible`, not started.
 
 ## Exports
@@ -197,7 +197,7 @@ presets/        biome, lefthook, commitlint, jscpd, knip: shipped, and used by t
 templates/      plugin/: the files every plugin repo has (shipped, for `tilr-plugin init`)
 .github/        ci.yml, release.yml (this repo), plugin.yml (the reusable CI of plugin repos)
 docs/           plugin-sdk.md, GUIDELINES.md, SDK.md
-site/           the core page, copied from web (gitignored, packed)
+site/           the core page, copied from web by `npm run sync:runtime` (committed, packed)
 ```
 
 | script | |
@@ -209,7 +209,7 @@ site/           the core page, copied from web (gitignored, packed)
 | `npm test` (`test:unit`) | the tools' unit tests (`node --test tools/*.test.mjs`; those that need `site/` are skipped without it) |
 | `npm run sync:runtime` | `site/` from web's built `site/` (`-- --build`: build web's page into a temp folder first) |
 | `npm run api:check` / `api:sync` | compare `api/` with / refresh it from web's sources |
-| `npm run pack:check` | `npm pack --dry-run` (prepack: build, and `site/` must be synced at this version) |
+| `npm run pack:check` | `npm pack --dry-run` (prepack: build, and `site/` must be the page of `tilrApi`) |
 
 ### Keeping api/ and site/ in sync
 
@@ -220,12 +220,28 @@ builds the page. The SDK takes two things from a web checkout (`$TILR_WEB_DIR`, 
 - **`api/`** is committed here and is what plugin repos compile against. `npm run api:check`
   emits the declarations with web's `tsconfig.api.json` into a temp folder and fails on any
   difference; `npm run api:sync` copies them in. A diff in `api/` is a change of the contract:
-  at least a minor for additions, a major (minor while 0.x) for anything that
-  breaks a plugin built against the old one; bump `version` and add a CHANGELOG entry.
+  set `tilrApi` to the API version web implements and commit it as `feat` (`feat!` for anything
+  that breaks a plugin built against the old one), so release-please bumps the package too.
 - **`site/`** (the page, its built-in plugins, `tilr.js`, `tilr/{react,ui,native}.js`, the vendored
-  cordis and React) is copied by `npm run sync:runtime`, which requires web's package.json
-  version to equal this package's (the page reports it as `window.tilr.api`, and a plugin stamped
-  `^<this version>` must run on it) and records web's commit in `site/.sync.json`.
+  cordis and React) is committed and is copied by `npm run sync:runtime`, which requires the
+  plugin API web implements (web's package.json version, which its build reports as
+  `window.tilr.api`) to equal `tilrApi`: a plugin stamped `^<tilrApi>` must run on it. It records
+  the API, web's version and commit in `site/.sync.json`; `--check` (and prepack) fail unless
+  that API is `tilrApi`. Refresh it on purpose, in a PR of its own.
+
+### Versions
+
+Three versions, each moving on its own:
+
+| version | where | changes |
+| --- | --- | --- |
+| SDK package | package.json `version` | release-please, from the Conventional Commits (any fix of the tools, presets or harness) |
+| plugin API | package.json `tilrApi` | only when the `api/` contract changes, together with `npm run api:sync` (and `sync:runtime`); release-please never touches it |
+| web (core) | web's package.json | independently, in the core repo; today it is also the API its page reports |
+
+`tilr-plugin build` stamps a plugin `api: ^<tilrApi>` of the installed SDK (its `version` for an
+SDK from before `tilrApi`), so a new SDK release with the same API leaves plugins' stamps as they
+were.
 
 ### Releasing
 

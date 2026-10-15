@@ -121,9 +121,9 @@ What every build does:
   A relative import fails the same way (the plugin is one file), and so do a side-effect import
   (`import './x.js'`), a re-export (`export … from`) and a dynamic `import('./x.js')`.
   `import type` is erased and always fine. Other `.ts` files in `src/` get a warning.
-- **The versions**: `__TILR_VERSION__` is package.json's `version`, `__TILR_API__` the version
-  of the `@tilr-dev/plugin` the repo has installed (the API it builds against; this package's
-  own when it is not installed). Both re-read on every build, so a version bump under `--watch`
+- **The versions**: `__TILR_VERSION__` is package.json's `version`, `__TILR_API__` the plugin
+  API version (`tilrApi`, not the package version) of the `@tilr-dev/plugin` the repo has
+  installed (the API it builds against; this package's own when it is not installed). Both re-read on every build, so a version bump under `--watch`
   takes effect. `dist/index.js` ends with the build's stamp,
   `export const __tilrBuild = { version, api: '^' + __TILR_API__ }`, from which the runtime
   fills in the `version` and `api` a plugin leaves out (see `definePlugin` below). Source that

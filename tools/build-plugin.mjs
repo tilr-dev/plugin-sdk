@@ -14,7 +14,8 @@
 //   the import map, a relative file) fails the build, naming the file and the specifier, instead
 //   of an install that 404s.
 // - Both: platform browser, ESM, safari17, `__TILR_VERSION__` = package.json's version,
-//   `__TILR_API__` = the version of the installed @tilr-dev/plugin (the API built against), and
+//   `__TILR_API__` = the plugin API version of the installed @tilr-dev/plugin (its package.json
+//   `tilrApi`, the API its api/ types describe; the package version for an SDK without one), and
 //   a stamp appended to index.js (`export const __tilrBuild = { version, api: '^' + api }`)
 //   from which the runtime fills in the `version` and `api` a plugin leaves out.
 // - src/api.ts (a service's types), if there is one, → dist/api.d.ts as is: what
@@ -98,14 +99,18 @@ export function checkNode(version = process.versions.node, range = KIT_PACKAGE.e
   }
 }
 
-/** The version of @tilr-dev/plugin the plugin at `root` builds against: its installed copy's,
+/** The plugin API version a @tilr-dev/plugin package.json declares: `tilrApi`, else (an SDK from
+ *  before the two were separate) its package version. */
+const tilrApi = pkg => pkg.tilrApi ?? pkg.version
+
+/** The plugin API version the plugin at `root` builds against: its installed @tilr-dev/plugin's,
  *  else this package's own. */
 export function apiVersion(root = process.cwd()) {
   try {
     const require = createRequire(join(resolve(root), 'package.json'))
-    return JSON.parse(readFileSync(require.resolve('@tilr-dev/plugin/package.json'), 'utf8')).version
+    return tilrApi(JSON.parse(readFileSync(require.resolve('@tilr-dev/plugin/package.json'), 'utf8')))
   } catch {
-    return KIT_PACKAGE.version
+    return tilrApi(KIT_PACKAGE)
   }
 }
 

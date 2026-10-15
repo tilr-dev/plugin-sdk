@@ -16,5 +16,10 @@ export function webDir(env = process.env) {
   return dir
 }
 
-/** web's package.json version: the plugin API its page implements. */
+/** web's package.json version. */
 export const webVersion = dir => JSON.parse(readFileSync(resolve(dir, 'package.json'), 'utf8')).version
+
+/** The plugin API version web's page implements (`window.tilr.api`): web's build.mjs defines
+ *  `__TILR_API__` as its package.json version, so for now it is webVersion. Compared with this
+ *  package's `tilrApi`, never with its own version. */
+export const webApi = dir => webVersion(dir)

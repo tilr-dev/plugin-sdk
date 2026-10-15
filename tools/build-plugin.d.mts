@@ -85,7 +85,8 @@ export declare function buildPlugin(options?: BuildPluginOptions): Promise<Build
 export declare function installPlugin(options?: { root?: string; argv?: string[] }): Promise<string[]>
 /** Throws a readable error unless `version` (default this Node) meets `range` (package.json's engines). */
 export declare function checkNode(version?: string, range?: string): void
-/** The version of @tilr-dev/plugin installed for the plugin at `root`, else this package's. */
+/** The plugin API version (package.json `tilrApi`, else `version`) of the @tilr-dev/plugin installed
+ *  for the plugin at `root`, else this package's. */
 export declare function apiVersion(root?: string): string
 /** `code` with the build stamp appended before a trailing sourceMappingURL comment. Throws if
  *  `code` has a `__tilrBuild` already. */
