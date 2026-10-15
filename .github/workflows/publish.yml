@@ -1,0 +1,77 @@
+# npm publish of a release tag, with provenance through trusted publishing (OIDC: no NPM_TOKEN).
+#
+# TODO: not in use yet. The package ships site/, the core page built from tilr-dev/web, which is
+# not on GitHub yet, so the web checkout below cannot work: publishing is manual from a local
+# machine (README, Releasing). When web is on GitHub:
+#   1. npmjs.com → @tilr-dev/plugin → Settings → Trusted publisher: GitHub Actions, organization
+#      `tilr-dev`, repository `plugin-sdk`, workflow `publish.yml`, environment `npm`;
+#   2. create the `npm` environment in this repo (Settings → Environments, required reviewers);
+#   3. pin the web ref each SDK version is synced from, and call this workflow from release.yml
+#      (`uses: ./.github/workflows/publish.yml` with the tag, when release_created) or keep it
+#      manual.
+name: publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The release tag to publish (vX.Y.Z), created by release-please.
+        type: string
+        required: true
+
+permissions: {}
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write # npm trusted publishing and provenance
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tag }}
+          path: sdk
+          fetch-depth: 0
+          persist-credentials: false
+      # TODO: confirm the repository name and pin the web ref this SDK version was synced from.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: tilr-dev/web
+          path: web
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24' # npm >= 11.5 for trusted publishing
+          registry-url: https://registry.npmjs.org
+      - name: Install gitleaks
+        run: |
+          curl -sSfL -o "$RUNNER_TEMP/gitleaks.tgz" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  $RUNNER_TEMP/gitleaks.tgz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/gitleaks.tgz" -C "$RUNNER_TEMP" gitleaks
+          echo "GITLEAKS=$RUNNER_TEMP/gitleaks" >> "$GITHUB_ENV"
+        env:
+          GITLEAKS_VERSION: 8.30.1
+          GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+      - run: npm ci
+        working-directory: web
+      - run: npm ci
+        working-directory: sdk
+      - name: Core page (site/) from web
+        run: npm run sync:runtime -- --build
+        working-directory: sdk
+        env:
+          TILR_WEB_DIR: ../web
+      - run: npm run verify:full
+        working-directory: sdk
+        env:
+          TILR_WEB_DIR: ../web
+      - run: npm publish --provenance --access public
+        working-directory: sdk

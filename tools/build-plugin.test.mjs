@@ -309,8 +309,12 @@ export default definePlugin({ name: 'fix', apply() { void (<Frame />) } })
     }
   })
 
-  test('IMPORT_MAP is the import map of site/index.html', () => {
-    const html = readFileSync(fileURLToPath(new URL('../site/index.html', import.meta.url)), 'utf8')
+  const SITE_INDEX = fileURLToPath(new URL('../site/index.html', import.meta.url))
+  const NO_SITE = existsSync(SITE_INDEX)
+    ? false
+    : 'skipped: needs core page (web): site/ is missing, run npm run sync:runtime'
+  test('IMPORT_MAP is the import map of site/index.html', { skip: NO_SITE }, () => {
+    const html = readFileSync(SITE_INDEX, 'utf8')
     const map = JSON.parse(/<script type="importmap">([\s\S]*?)<\/script>/.exec(html)?.[1] ?? '{}')
     assert.deepEqual([...IMPORT_MAP].sort(), Object.keys(map.imports).sort())
   })

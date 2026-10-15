@@ -10,9 +10,10 @@
 //   tilr-plugin install-site [--site DIR]
 //                     dist/ → plugins/<name>/ of the Tilr site, the name appended to plugins.json
 //                     (--site DIR, $TILR_SITE, the app's config, the default; see the README)
-//   tilr-plugin verify [--full] [--skip a,b] [--only a,b]
+//   tilr-plugin verify [--full] [--no-runtime] [--skip a,b] [--only a,b]
 //                     the repo standard's checks: format, lint, types, api, unit, dupes, unused,
-//                     secrets, deps (+ e2e, pack with --full); the first failure stops (verify.mjs)
+//                     secrets, deps (+ e2e, pack with --full); the first failure stops (verify.mjs);
+//                     --no-runtime ($TILR_NO_RUNTIME=1) skips api, e2e, pack (need web / site/)
 //   tilr-plugin hook pre-commit <files…> | hook commit-msg <file>
 //                     what the git hooks run (presets/lefthook.yml)
 //
@@ -26,7 +27,7 @@ import { parseVerifyArgs, runHook, runSteps, selectSteps } from './verify.mjs'
 const usage = () => {
   console.error(
     'usage: tilr-plugin build [--watch] [--install] [--site DIR] | dev [--site DIR] | install-site [--site DIR]\n' +
-      '       tilr-plugin verify [--full] [--skip a,b] [--only a,b] | hook pre-commit <files…> | hook commit-msg <file>',
+      '       tilr-plugin verify [--full] [--no-runtime] [--skip a,b] [--only a,b] | hook pre-commit <files…> | hook commit-msg <file>',
   )
   process.exit(2)
 }
@@ -56,9 +57,11 @@ try {
     case 'install-site':
       await installPlugin({ argv: args })
       break
-    case 'verify':
-      if (!runSteps(selectSteps(parseVerifyArgs(args))).ok) process.exitCode = 1
+    case 'verify': {
+      const options = parseVerifyArgs(args)
+      if (!runSteps(selectSteps(options), { noRuntime: options.noRuntime }).ok) process.exitCode = 1
       break
+    }
     case 'hook':
       if (!runHook(args[0], args.slice(1))) process.exitCode = 1
       break

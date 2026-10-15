@@ -1,7 +1,10 @@
 # Releases (repo standard, §5): release-please keeps a release PR open from the Conventional
 # Commits on master (version bump + CHANGELOG); merging it tags vX.Y.Z and creates the GitHub
-# release, and then the package is checked again and published to npm with provenance through
-# trusted publishing (OIDC: no NPM_TOKEN; configure the trusted publisher on npmjs.com).
+# release.
+#
+# Publishing to npm is manual for now (README, Releasing): the package ships site/, the core page
+# built from tilr-dev/web, which is not on GitHub yet. TODO: when it is, add the publish job back
+# (see publish.yml) and run it when release-please created a release.
 name: release
 
 on:
@@ -20,64 +23,9 @@ jobs:
     permissions:
       contents: write # the release PR's branch, the tag, the GitHub release
       pull-requests: write # the release PR
-    outputs:
-      release_created: ${{ steps.release.outputs.release_created }}
-      tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
       - id: release
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
-
-  publish:
-    needs: release-please
-    if: needs.release-please.outputs.release_created == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    environment: npm
-    permissions:
-      contents: read
-      id-token: write # npm trusted publishing and provenance
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ needs.release-please.outputs.tag_name }}
-          path: sdk
-          fetch-depth: 0
-          persist-credentials: false
-      # TODO: confirm the repository name and pin the web ref this SDK version was synced from.
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: tilr-dev/web
-          path: web
-          persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: '24' # npm >= 11.5 for trusted publishing
-          registry-url: https://registry.npmjs.org
-      - name: Install gitleaks
-        run: |
-          curl -sSfL -o "$RUNNER_TEMP/gitleaks.tgz" \
-            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
-          echo "${GITLEAKS_SHA256}  $RUNNER_TEMP/gitleaks.tgz" | sha256sum -c -
-          tar -xzf "$RUNNER_TEMP/gitleaks.tgz" -C "$RUNNER_TEMP" gitleaks
-          echo "GITLEAKS=$RUNNER_TEMP/gitleaks" >> "$GITHUB_ENV"
-        env:
-          GITLEAKS_VERSION: 8.30.1
-          GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
-      - run: npm ci
-        working-directory: web
-      - run: npm ci
-        working-directory: sdk
-      - name: Core page (site/) from web
-        run: npm run sync:runtime -- --build
-        working-directory: sdk
-        env:
-          TILR_WEB_DIR: ../web
-      - run: npm run verify:full
-        working-directory: sdk
-        env:
-          TILR_WEB_DIR: ../web
-      - run: npm publish --provenance --access public
-        working-directory: sdk

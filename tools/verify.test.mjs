@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url'
 import {
   FULL_STEPS,
   PRESETS,
+  RUNTIME_STEPS,
   STEPS,
   isCI,
   onPath,
@@ -78,18 +79,52 @@ describe('the plan', () => {
       full: true,
       skip: ['deps', 'secrets'],
       only: [],
+      noRuntime: undefined,
     })
+    assert.equal(parseVerifyArgs(['--no-runtime']).noRuntime, true)
   })
 
   test('scripts the repo does not have are skipped; a private package is not packed', () => {
     const root = fixture({ name: 'p', private: true, scripts: {} })
     for (const name of ['api', 'unit', 'e2e', 'pack']) assert.ok(step(name, { root }).skip, name)
     const sdk = fixture({ name: '@x/sdk', scripts: { 'api:check': 'x', 'test:unit': 'x', 'test:e2e': 'x' } })
-    assert.deepEqual(step('api', { root: sdk }).cmds, [['npm', ['run', '--silent', 'api:check']]])
-    assert.deepEqual(step('unit', { root: sdk }).cmds, [['npm', ['run', '--silent', 'test:unit']]])
-    assert.deepEqual(step('e2e', { root: sdk }).cmds, [['npm', ['run', '--silent', 'test:e2e']]])
-    assert.deepEqual(step('pack', { root: sdk }).cmds, [['npm', ['pack', '--dry-run']]])
-    assert.deepEqual(step('deps', { root: sdk }).cmds, [['npm', ['audit', '--audit-level=high']]])
+    const env = {}
+    assert.deepEqual(step('api', { root: sdk, env }).cmds, [['npm', ['run', '--silent', 'api:check']]])
+    assert.deepEqual(step('unit', { root: sdk, env }).cmds, [['npm', ['run', '--silent', 'test:unit']]])
+    assert.deepEqual(step('e2e', { root: sdk, env }).cmds, [['npm', ['run', '--silent', 'test:e2e']]])
+    assert.deepEqual(step('pack', { root: sdk, env }).cmds, [['npm', ['pack', '--dry-run']]])
+    assert.deepEqual(step('deps', { root: sdk, env }).cmds, [['npm', ['audit', '--audit-level=high']]])
+  })
+
+  test('--no-runtime / $TILR_NO_RUNTIME skip the steps that need the core page (web)', () => {
+    const sdk = fixture({ name: '@x/sdk', scripts: { 'api:check': 'x', 'test:unit': 'x', 'test:e2e': 'x' } })
+    assert.deepEqual(RUNTIME_STEPS, ['api', 'e2e', 'pack'])
+    for (const name of RUNTIME_STEPS) {
+      assert.match(step(name, { root: sdk, env: {}, noRuntime: true }).skip, /needs core page \(web\)/, name)
+      assert.match(step(name, { root: sdk, env: { TILR_NO_RUNTIME: '1' } }).skip, /needs core page/, name)
+      assert.ok(step(name, { root: sdk, env: { TILR_NO_RUNTIME: '0' } }).cmds, name)
+      assert.ok(step(name, { root: sdk, env: { TILR_NO_RUNTIME: '1' }, noRuntime: false }).cmds, name)
+    }
+    assert.ok(step('unit', { root: sdk, env: {}, noRuntime: true }).cmds)
+    const ran = []
+    const lines = []
+    const { ok, results } = runSteps(['unit', 'api', 'pack'], {
+      root: sdk,
+      env: {},
+      noRuntime: true,
+      run: cmd => ran.push(cmd) && 0,
+      log: line => lines.push(line),
+    })
+    assert.ok(ok)
+    assert.deepEqual(
+      results.map(r => r.status),
+      ['ok', 'skip', 'skip'],
+    )
+    assert.equal(ran.length, 1)
+    assert.ok(
+      lines.some(line => line.includes('api: skipped: needs core page (web)')),
+      lines.join('\n'),
+    )
   })
 
   test('without configs of its own a repo gets the presets (but biome.json); with them, its own', () => {

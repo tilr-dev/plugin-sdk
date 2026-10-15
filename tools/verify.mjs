@@ -1,4 +1,4 @@
-// `tilr-plugin verify [--full] [--skip a,b] [--only a,b]` and `tilr-plugin hook <name> …`: the
+// `tilr-plugin verify [--full] [--no-runtime] [--skip a,b] [--only a,b]` and `tilr-plugin hook <name> …`: the
 // repo standard's checks (doc: repo-standard.md, §2 and §4), the same in the SDK and in every
 // plugin repo. One command for the human, the git hooks and CI: green here, green there.
 //
@@ -14,6 +14,10 @@
 //   --full adds:
 //   e2e      npm run test:e2e, when package.json has that script
 //   pack     npm pack --dry-run, unless the package is private
+//
+// --no-runtime (or $TILR_NO_RUNTIME=1) skips the steps that need the core page (site/) or a web
+// checkout: api, e2e, pack (RUNTIME_STEPS). The SDK's CI runs so until web is on GitHub; unit
+// tests that need site/ skip themselves when it is missing.
 //
 // The first failing step stops the run (exit 1). A step whose script the repo does not have is
 // skipped. Configs: the repo's own (.jscpd.json, knip.json, commitlint.config.js), else this
@@ -36,6 +40,9 @@ export const PRESETS = join(KIT, 'presets')
 /** The steps of `verify`, in order; `verify --full` runs FULL_STEPS. */
 export const STEPS = ['format', 'lint', 'types', 'api', 'unit', 'dupes', 'unused', 'secrets', 'deps']
 export const FULL_STEPS = [...STEPS, 'e2e', 'pack']
+/** The steps --no-runtime skips: they need the core page (site/) or the core repo (web). */
+export const RUNTIME_STEPS = ['api', 'e2e', 'pack']
+const NO_RUNTIME = 'needs core page (web), --no-runtime'
 
 const BIOME_CONFIGS = ['biome.json', 'biome.jsonc']
 const JSCPD_CONFIGS = ['.jscpd.json']
@@ -63,8 +70,11 @@ const SECONDS = 1000
 /** The width of a step's name in the summary. */
 const NAME_WIDTH = 8
 
+/** Whether `value` (an env var) is set to something other than '', 'false' or '0'. */
+const truthy = value => !!value && value !== 'false' && value !== '0'
+
 /** Whether `env` is a CI run (GitHub Actions and most others set CI=true). */
-export const isCI = (env = process.env) => !!env.CI && env.CI !== 'false' && env.CI !== '0'
+export const isCI = (env = process.env) => truthy(env.CI)
 
 /** The repo's package.json ({} without one). */
 export function readPackage(root) {
@@ -164,9 +174,14 @@ const PLANS = {
   pack: ({ pkg }) => (pkg.private ? { skip: 'private package' } : { cmds: [['npm', ['pack', '--dry-run']]] }),
 }
 
-/** One step of verify as what to run: `{ cmds }`, or `{ skip }`, `{ warn }`, `{ missing }`. */
-export function step(name, { root, env = process.env, pkg = readPackage(root) }) {
+/** One step of verify as what to run: `{ cmds }`, or `{ skip }`, `{ warn }`, `{ missing }`.
+ *  With `noRuntime` (default: $TILR_NO_RUNTIME), RUNTIME_STEPS are skipped. */
+export function step(
+  name,
+  { root, env = process.env, pkg = readPackage(root), noRuntime = truthy(env.TILR_NO_RUNTIME) },
+) {
   if (!Object.hasOwn(PLANS, name)) throw new Error(`unknown step ${name}; the steps are ${FULL_STEPS.join(', ')}`)
+  if (noRuntime && RUNTIME_STEPS.includes(name)) return { skip: NO_RUNTIME }
   return PLANS[name]({ root, env, pkg })
 }
 
@@ -207,14 +222,28 @@ function runStep(planned, { root, run, log }) {
 }
 
 /** Runs `names` in order until one fails. Resolves to { ok, results: [{ name, status, ms }] }.
- *  `run` and `log` are for the tests (default: exec and console.log). */
-export function runSteps(names, { root = process.cwd(), env = process.env, run = exec, log = console.log } = {}) {
+ *  `noRuntime` skips RUNTIME_STEPS (default: $TILR_NO_RUNTIME); `run` and `log` are for the
+ *  tests (default: exec and console.log). */
+export function runSteps(
+  names,
+  {
+    root = process.cwd(),
+    env = process.env,
+    noRuntime = truthy(env.TILR_NO_RUNTIME),
+    run = exec,
+    log = console.log,
+  } = {},
+) {
   const pkg = readPackage(root)
   const results = []
   for (const name of names) {
     log(`\n▸ ${name}`)
     const start = performance.now()
-    const status = runStep(step(name, { root, env, pkg }), { root, run, log: text => log(`  ${name}: ${text}`) })
+    const status = runStep(step(name, { root, env, pkg, noRuntime }), {
+      root,
+      run,
+      log: text => log(`  ${name}: ${text}`),
+    })
     results.push({ name, status, ms: Math.round(performance.now() - start) })
     if (status === 'fail') break
   }
@@ -258,11 +287,13 @@ export function runHook(name, args, { root = process.cwd(), env = process.env, r
   return true
 }
 
-/** `tilr-plugin verify` argv → selectSteps() options. */
+/** `tilr-plugin verify` argv → selectSteps() options, and `noRuntime` (true with --no-runtime,
+ *  else undefined: $TILR_NO_RUNTIME decides). */
 export function parseVerifyArgs(argv) {
   const list = flag => {
     const i = argv.indexOf(flag)
     return i === -1 ? [] : (argv[i + 1] ?? '').split(',').filter(Boolean)
   }
-  return { full: argv.includes('--full'), skip: list('--skip'), only: list('--only') }
+  const noRuntime = argv.includes('--no-runtime') || undefined
+  return { full: argv.includes('--full'), skip: list('--skip'), only: list('--only'), noRuntime }
 }

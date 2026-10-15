@@ -206,7 +206,7 @@ site/           the core page, copied from web (gitignored, packed)
 | `npm run verify` / `verify:full` | every check (below); `:full` adds `npm pack --dry-run` |
 | `npm run check` | `tsc` (declarations, harness) and `eslint` |
 | `npm run format` | `biome format --write .` |
-| `npm test` (`test:unit`) | the tools' unit tests (`node --test tools/*.test.mjs`; needs `site/`) |
+| `npm test` (`test:unit`) | the tools' unit tests (`node --test tools/*.test.mjs`; those that need `site/` are skipped without it) |
 | `npm run sync:runtime` | `site/` from web's built `site/` (`-- --build`: build web's page into a temp folder first) |
 | `npm run api:check` / `api:sync` | compare `api/` with / refresh it from web's sources |
 | `npm run pack:check` | `npm pack --dry-run` (prepack: build, and `site/` must be synced at this version) |
@@ -220,18 +220,38 @@ builds the page. The SDK takes two things from a web checkout (`$TILR_WEB_DIR`, 
 - **`api/`** is committed here and is what plugin repos compile against. `npm run api:check`
   emits the declarations with web's `tsconfig.api.json` into a temp folder and fails on any
   difference; `npm run api:sync` copies them in. A diff in `api/` is a change of the contract:
-  at least a minor (patch while 0.x) for additions, a major (minor while 0.x) for anything that
+  at least a minor for additions, a major (minor while 0.x) for anything that
   breaks a plugin built against the old one; bump `version` and add a CHANGELOG entry.
 - **`site/`** (the page, its built-in plugins, `tilr.js`, `tilr/{react,ui,native}.js`, the vendored
   cordis and React) is copied by `npm run sync:runtime`, which requires web's package.json
   version to equal this package's (the page reports it as `window.tilr.api`, and a plugin stamped
   `^<this version>` must run on it) and records web's commit in `site/.sync.json`.
 
-Release: release-please (`.github/workflows/release.yml`) keeps a release PR open from the
-Conventional Commits on master; merging it tags the version, then CI syncs `site/` from web,
-runs `npm run verify:full` and publishes with provenance (trusted publishing, no token). The
-version must still equal web's (`sync:runtime` checks it): give the release PR the right one
-(`Release-As: x.y.z` in a commit body) when the computed one differs.
+### Releasing
+
+release-please (`.github/workflows/release.yml`) keeps a release PR open from the Conventional
+Commits on master (version bump in package.json and the manifest, CHANGELOG entry; while 0.x
+`feat` and breaking changes bump the minor, `fix` the patch). Merging it tags `vX.Y.Z` and
+creates the GitHub release. The version must equal web's (`sync:runtime` checks it): give the
+release PR the right one (`Release-As: x.y.z` in a commit body) when the computed one differs.
+
+Publishing to npm is **manual, from a local machine**, for now: the tarball ships `site/`, built
+from web, and web is not on GitHub yet. After release-please created the tag:
+
+```sh
+git checkout vX.Y.Z           # the release tag; web checked out next to it at the matching version
+npm ci
+npm run sync:runtime          # site/ from web (`-- --build` to build web's page first)
+npm run verify:full           # every check, api:check against web, npm pack --dry-run
+npm publish --access public   # asks for the npm 2FA code
+```
+
+Later, publishing moves to CI with trusted publishing (OIDC, provenance, no token):
+`.github/workflows/publish.yml` is that job, manual (`workflow_dispatch`) and not in use until
+web is on GitHub. To enable it: on npmjs.com, the package's Settings → Trusted publisher →
+GitHub Actions, organization `tilr-dev`, repository `plugin-sdk`, workflow file `publish.yml`,
+environment `npm`; create the `npm` environment in the repo's settings; then run it for the tag
+(or call it from release.yml when a release was created).
 
 ## Checks & contributing
 
@@ -252,7 +272,9 @@ is what a human, the git hooks and CI run, so green locally means green in CI. I
 | deps | `npm audit --audit-level=high` | vulnerable dependencies |
 
 `verify:full` adds `test:e2e` (Playwright WebKit) and `npm pack --dry-run` (unless private).
-The first failure stops the run. gitleaks is a Go binary, not on npm: put it on `PATH`
+The first failure stops the run. `--no-runtime` (or `TILR_NO_RUNTIME=1`) skips the steps that
+need the core page or a web checkout (api, e2e, pack: "skipped: needs core page (web)"); the
+SDK's CI runs so until web is on GitHub. gitleaks is a Go binary, not on npm: put it on `PATH`
 (`brew install gitleaks`) or set `$GITLEAKS`; without it the step fails on CI (`$CI`) and
 is a warning locally. `--skip deps` is for working offline.
 
@@ -262,10 +284,12 @@ staged files and runs gitleaks on the staged diff; **commit-msg** runs commitlin
 (Conventional Commits: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `ci`, `perf`; no AI
 attribution lines); **pre-push** runs `npm run verify`.
 
-CI (`.github/workflows/`): `ci.yml` runs `verify:full` on every pull request and push to
-master (it checks out web/ next to the SDK for `api:check` and `site/`); `plugin.yml` is the
-same for plugin repos (`uses: tilr-dev/plugin-sdk/.github/workflows/plugin.yml@v0`, input
-`node-version`); `release.yml` is release-please and the npm publish. Workflows have minimal
+CI (`.github/workflows/`): `ci.yml` runs `verify --full --no-runtime` on Node 22 and 24 on
+every pull request and push to master (no web checkout yet: api, e2e and pack are skipped, and
+so are the unit tests that need `site/`); `plugin.yml` is `verify:full` for plugin repos (`uses:
+tilr-dev/plugin-sdk/.github/workflows/plugin.yml@v0`, input `node-version`; the SDK comes from
+npm with `site/` in it); `release.yml` is release-please; `publish.yml` the future npm publish
+(Releasing). Workflows have minimal
 `permissions`, no `pull_request_target`, and actions pinned by commit SHA (Renovate updates them).
 
 Contributing: read [AGENTS.md](AGENTS.md). Short branches, Conventional Commits, PRs

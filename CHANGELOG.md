@@ -5,7 +5,9 @@ in a plugin refers to. The contract is `api/` (README, Keeping api/ and site/ in
 the version is 0.x, a minor bump may break plugins (`^0.1.0` accepts 0.1.x only). Entries before
 0.1.14 are in the core repo's (web/) CHANGELOG, where the package used to live.
 
-## Unreleased
+## 0.1.14
+
+First release from this repo.
 
 Removed: the `tilr` bin (`ctl`, `mcp`, app/plugin workspace commands), bench, memory, browser
 tools — not part of the plugin SDK. The SDK keeps what a plugin author needs (`tilr-plugin`).
@@ -16,6 +18,9 @@ The repo standard (one pipeline for the SDK and every plugin repo):
   (jscpd), unused (knip), secrets (gitleaks), deps (`npm audit --audit-level=high`); `--full`
   adds e2e and `npm pack --dry-run`. The first failure stops it. `tilr-plugin hook pre-commit |
   commit-msg` for the git hooks.
+- `tilr-plugin verify --no-runtime` (or `TILR_NO_RUNTIME=1`) skips the steps that need the core
+  page or a web checkout (api, e2e, pack). The SDK's CI runs so until web is on GitHub; npm
+  publishing is manual meanwhile (README, Releasing).
 - Shipped presets: `@tilr-dev/plugin/biome`, `/lefthook.yml`, `/commitlint` (Conventional
   Commits, no AI attribution), `/jscpd.json`, `/knip.json`; `templates/plugin/` with the files a
   plugin repo has (AGENTS.md, CLAUDE.md, configs, CI and release workflows).
@@ -28,10 +33,8 @@ The repo standard (one pipeline for the SDK and every plugin repo):
   `@eslint-community/eslint-plugin-eslint-comments`, `jscpd`, `knip`. `lefthook` is an optional
   peer (a plugin repo adds it as a dev dependency).
 - This repo: formatted with Biome; `npm run verify` / `verify:full`, lefthook hooks, CI
-  (`ci.yml`, the reusable `plugin.yml`, `release.yml` with release-please and npm provenance),
+  (`ci.yml`, the reusable `plugin.yml`, `release.yml` with release-please; npm publish is manual for now),
   Renovate, AGENTS.md.
-
-## 0.1.14 — unreleased
 
 The SDK moves to its own repo (this one), extracted from the core repo (web/) without history.
 The package's contents and exports are those of web's 0.1.14; what changed is where they come from:
