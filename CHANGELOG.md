@@ -5,6 +5,29 @@ in a plugin refers to. The contract is `api/` (README, Keeping api/ and site/ in
 the version is 0.x, a minor bump may break plugins (`^0.1.0` accepts 0.1.x only). Entries before
 0.1.14 are in the core repo's (web/) CHANGELOG, where the package used to live.
 
+## Unreleased
+
+The repo standard (one pipeline for the SDK and every plugin repo):
+
+- `tilr-plugin verify [--full]`: format (Biome, format only), lint, types, api, unit, dupes
+  (jscpd), unused (knip), secrets (gitleaks), deps (`npm audit --audit-level=high`); `--full`
+  adds e2e and `npm pack --dry-run`. The first failure stops it. `tilr-plugin hook pre-commit |
+  commit-msg` for the git hooks.
+- Shipped presets: `@tilr-dev/plugin/biome`, `/lefthook.yml`, `/commitlint` (Conventional
+  Commits, no AI attribution), `/jscpd.json`, `/knip.json`; `templates/plugin/` with the files a
+  plugin repo has (AGENTS.md, CLAUDE.md, configs, CI and release workflows).
+- `@tilr-dev/plugin/eslint` is stricter, so a plugin may get new findings: a disable needs a
+  description (`-- why`) and an unused one is an error; `complexity` ≤ 15, `max-depth` ≤ 4,
+  `max-params` ≤ 4 (errors); `max-lines` (400) and `no-magic-numbers` (warnings, not in tests);
+  `no-console` in `src/` (not in tests and tools).
+- New dependencies (the checks' tools): `@biomejs/biome`, `@commitlint/cli`,
+  `@commitlint/config-conventional`, `conventional-changelog-conventionalcommits`,
+  `@eslint-community/eslint-plugin-eslint-comments`, `jscpd`, `knip`. `lefthook` is an optional
+  peer (a plugin repo adds it as a dev dependency).
+- This repo: formatted with Biome; `npm run verify` / `verify:full`, lefthook hooks, CI
+  (`ci.yml`, the reusable `plugin.yml`, `release.yml` with release-please and npm provenance),
+  Renovate, AGENTS.md.
+
 ## 0.1.14 — unreleased
 
 The SDK moves to its own repo (this one), extracted from the core repo (web/) without history.

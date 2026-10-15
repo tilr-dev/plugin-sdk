@@ -82,11 +82,11 @@ export interface BuildPluginResult {
 export declare function buildPlugin(options?: BuildPluginOptions): Promise<BuildPluginResult>
 /** Installs the plugin's dist/ into the Tilr site (--site DIR, $TILR_SITE, the app's config,
  *  the default); resolves to the changed site paths. */
-export declare function installPlugin(options?: { root?: string, argv?: string[] }): Promise<string[]>
+export declare function installPlugin(options?: { root?: string; argv?: string[] }): Promise<string[]>
 /** Throws a readable error unless `version` (default this Node) meets `range` (package.json's engines). */
 export declare function checkNode(version?: string, range?: string): void
 /** The version of @tilr-dev/plugin installed for the plugin at `root`, else this package's. */
 export declare function apiVersion(root?: string): string
 /** `code` with the build stamp appended before a trailing sourceMappingURL comment. Throws if
  *  `code` has a `__tilrBuild` already. */
-export declare function stamp(code: string, versions: { version: string, api: string }): string
+export declare function stamp(code: string, versions: { version: string; api: string }): string

@@ -8,7 +8,9 @@ root context plus hot-reloadable plugins; a plugin is one `index.js` the page lo
   are for tsc),
 - the **shared build** (`@tilr-dev/plugin/build`) and the **CLI** (`tilr-plugin`, `tilr`),
 - the **e2e harness** (`@tilr-dev/plugin/test`) and the **built core page** it serves (`site/`),
-- the **shared configs**: tsconfig, eslint, Playwright.
+- the **shared configs**: tsconfig, eslint, Playwright, and the repo standard's checks
+  (`tilr-plugin verify`) with their presets: Biome (format), lefthook (git hooks), commitlint,
+  jscpd, knip; plus `templates/plugin/`, the files every plugin repo has.
 
 The page itself (the runtime and the built-in plugins) lives in the core repo, `web/`; this
 package carries a built copy of it (see Keeping api/ and site/ in sync). Docs:
@@ -41,6 +43,11 @@ playwright.config.ts  export { default } from '@tilr-dev/plugin/playwright'
 tsconfig.json         { "extends": "@tilr-dev/plugin/tsconfig.plugin.json", "include": ["src"] }
 tsconfig.test.json    { "extends": "@tilr-dev/plugin/tsconfig.plugin-test.json" }
 eslint.config.js      import { withRoot } from '@tilr-dev/plugin/eslint'; export default withRoot(import.meta.dirname)
+biome.json            { "root": true, "extends": ["@tilr-dev/plugin/biome"] }
+lefthook.yml          extends: [node_modules/@tilr-dev/plugin/presets/lefthook.yml]
+commitlint.config.js  export { default } from '@tilr-dev/plugin/commitlint'
+AGENTS.md, CLAUDE.md  the rules for whoever writes the code (CLAUDE.md is `@AGENTS.md`)
+.github/workflows/    ci.yml (the SDK's reusable plugin.yml) and release.yml (release-please)
 src/index.ts(x)       the plugin
 src/api.ts            optional: the service's types → dist/api.d.ts
 test/*.spec.ts        e2e on the harness (@tilr-dev/plugin/test)
@@ -56,9 +63,16 @@ src/**/*.test.ts      optional: unit tests (node --test)
   "check": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json && eslint .",
   "test": "npm run test:unit && npm run test:e2e",
   "test:unit": "node --test 'src/**/*.test.ts'",
-  "test:e2e": "playwright test"
+  "test:e2e": "playwright test",
+  "verify": "tilr-plugin verify",
+  "verify:full": "tilr-plugin verify --full",
+  "prepare": "lefthook install"
 }
 ```
+
+`templates/plugin/` in this package has all of these (`gitignore` is `.gitignore`, npm does not
+pack that name; `package.fragment.json` is what to merge into package.json); a future
+`tilr-plugin init` will copy them. With lefthook as a dev dependency of the plugin repo.
 
 If a unit test imports the built `dist/index.js`, `test:unit` becomes `tilr-plugin build && node
 --import @tilr-dev/plugin/test/node --test 'src/**/*.test.ts'`: the hook resolves `'tilr'`,
@@ -111,6 +125,10 @@ export default definePlugin({
 | `@tilr-dev/plugin/site/…` | the built core page; `coreSite()` returns its path. |
 | `@tilr-dev/plugin/tsconfig.base.json`, `tsconfig.plugin.json`, `tsconfig.plugin-test.json` | compiler settings; a plugin repo's tsconfig.json / tsconfig.test.json by `extends` alone. |
 | `@tilr-dev/plugin/eslint` | the lint rules (`eslint.base.js`); `withRoot(import.meta.dirname)`. |
+| `@tilr-dev/plugin/biome` | the Biome config (format only, linter off): `"extends": ["@tilr-dev/plugin/biome"]`. |
+| `@tilr-dev/plugin/lefthook.yml` | the git hooks (`presets/lefthook.yml`); lefthook extends it by path in `node_modules/`. |
+| `@tilr-dev/plugin/commitlint` | the commitlint config: Conventional Commits, the standard's types, no AI attribution. |
+| `@tilr-dev/plugin/jscpd.json`, `/knip.json` | the defaults `tilr-plugin verify` uses when the repo has no `.jscpd.json` / `knip.json`. |
 | `@tilr-dev/plugin/globals` | `__TILR_VERSION__`, `__TILR_API__` (loaded by tsconfig.base.json). |
 
 ## CLI
@@ -122,6 +140,8 @@ export default definePlugin({
 | `tilr-plugin build [--watch] [--install] [--site DIR]` | `node build.mjs …` when the repo has one, else `buildPlugin()` with the defaults |
 | `tilr-plugin dev [--site DIR]` | `build --watch --install`: rebuild on every save, install each good build |
 | `tilr-plugin install-site [--site DIR]` | `dist/` → `plugins/<name>/` of the Tilr site, the name appended to `plugins.json` |
+| `tilr-plugin verify [--full] [--skip a,b] [--only a,b]` | the repo standard's checks, in order, stopping at the first failure (Checks & contributing) |
+| `tilr-plugin hook pre-commit <files…>` / `hook commit-msg <file>` | what the git hooks run (`presets/lefthook.yml`) |
 
 The site is `--site DIR`, else `$TILR_SITE`, else `site:` in the app's `config.yml`, else
 `~/Library/Application Support/dev.tilr.mac/apps/default`. Installing replaces only the plugin's
@@ -175,7 +195,10 @@ api/            the plugin API's declarations (committed; the contract)
 test/harness.ts the e2e harness → dist/test/ (npm run build)
 tools/          build-plugin, tilr-plugin, tilr (+ control, bench, memory, tilr-mcp), install-site,
                 node-resolve, playwright, global-setup; *.test.mjs are their unit tests
-scripts/        sync-runtime.mjs (site/ from web), api-sync.mjs (api/ against web)
+scripts/        sync-runtime.mjs (site/ from web), api-sync.mjs (api/ against web), prepare.mjs (git hooks)
+presets/        biome, lefthook, commitlint, jscpd, knip: shipped, and used by this repo too
+templates/      plugin/: the files every plugin repo has (shipped, for `tilr-plugin init`)
+.github/        ci.yml, release.yml (this repo), plugin.yml (the reusable CI of plugin repos)
 docs/           plugin-sdk.md, GUIDELINES.md, SDK.md
 site/           the core page, copied from web (gitignored, packed)
 ```
@@ -183,8 +206,10 @@ site/           the core page, copied from web (gitignored, packed)
 | script | |
 | --- | --- |
 | `npm run build` | the harness → `dist/test/` |
+| `npm run verify` / `verify:full` | every check (below); `:full` adds `npm pack --dry-run` |
 | `npm run check` | `tsc` (declarations, harness) and `eslint` |
-| `npm test` | the tools' unit tests (`node --test tools/*.test.mjs`; needs `site/`) |
+| `npm run format` | `biome format --write .` |
+| `npm test` (`test:unit`) | the tools' unit tests (`node --test tools/*.test.mjs`; needs `site/`) |
 | `npm run sync:runtime` | `site/` from web's built `site/` (`-- --build`: build web's page into a temp folder first) |
 | `npm run api:check` / `api:sync` | compare `api/` with / refresh it from web's sources |
 | `npm run pack:check` | `npm pack --dry-run` (prepack: build, and `site/` must be synced at this version) |
@@ -205,8 +230,49 @@ builds the page. The SDK takes two things from a web checkout (`$TILR_WEB_DIR`, 
   version to equal this package's (the page reports it as `window.tilr.api`, and a plugin stamped
   `^<this version>` must run on it) and records web's commit in `site/.sync.json`.
 
-Release: bump `version` (same as web's), `npm run api:sync`, `npm run sync:runtime`,
-`npm run check && npm test`, CHANGELOG, `npm publish`.
+Release: release-please (`.github/workflows/release.yml`) keeps a release PR open from the
+Conventional Commits on master; merging it tags the version, then CI syncs `site/` from web,
+runs `npm run verify:full` and publishes with provenance (trusted publishing, no token). The
+version must still equal web's (`sync:runtime` checks it): give the release PR the right one
+(`Release-As: x.y.z` in a commit body) when the computed one differs.
+
+## Checks & contributing
+
+The repo standard (one source of truth for the SDK and every plugin repo): **`npm run verify`**
+is what a human, the git hooks and CI run, so green locally means green in CI. It is
+`tilr-plugin verify` (`tools/verify.mjs`), the same command a plugin repo runs:
+
+| step | tool | what it catches |
+| --- | --- | --- |
+| format | Biome, `biome format` (format only) | style; `npm run format` fixes it |
+| lint | ESLint, type-aware (`eslint.base.js`) | `any`, `!`, unexplained ts-ignore, dropped promises, complexity > 15, depth > 4, params > 4, disables without a reason; warnings: file length, magic numbers |
+| types | `tsc --noEmit` (tsconfig.json, tsconfig.test.json) | types |
+| api | `npm run api:check` (when the repo has it) | an unnoticed change of the public contract |
+| unit | `npm run test:unit` | logic |
+| dupes | jscpd (`presets/jscpd.json` or `.jscpd.json`) | copy-paste between files |
+| unused | knip (`knip.json`, else `presets/knip.json`) | unused files, exports, dependencies |
+| secrets | gitleaks (`.gitleaks.toml` for exceptions) | keys, tokens, in the git history |
+| deps | `npm audit --audit-level=high` | vulnerable dependencies |
+
+`verify:full` adds `test:e2e` (Playwright WebKit) and `npm pack --dry-run` (unless private).
+The first failure stops the run. gitleaks is a Go binary, not on npm: put it on `PATH`
+(`brew install gitleaks`) or set `$GITLEAKS`; without it the step fails on CI (`$CI`) and
+is a warning locally. `--skip deps` is for working offline.
+
+Git hooks (lefthook, installed by `npm install` through `prepare`; only in a git checkout,
+never when the package is installed as a dependency): **pre-commit** formats and lints the
+staged files and runs gitleaks on the staged diff; **commit-msg** runs commitlint
+(Conventional Commits: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `ci`, `perf`; no AI
+attribution lines); **pre-push** runs `npm run verify`.
+
+CI (`.github/workflows/`): `ci.yml` runs `verify:full` on every pull request and push to
+master (it checks out web/ next to the SDK for `api:check` and `site/`); `plugin.yml` is the
+same for plugin repos (`uses: tilr-dev/plugin-sdk/.github/workflows/plugin.yml@v0`, input
+`node-version`); `release.yml` is release-please and the npm publish. Workflows have minimal
+`permissions`, no `pull_request_target`, and actions pinned by commit SHA (Renovate updates them).
+
+Contributing: read [AGENTS.md](AGENTS.md). Short branches, Conventional Commits, PRs
+squash-merged into a green `master`; `npm run verify` before every commit.
 
 ## License
 

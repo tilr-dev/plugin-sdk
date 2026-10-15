@@ -1,0 +1,17 @@
+{
+  "format": ["javascript", "typescript", "tsx", "jsx"],
+  "ignore": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/site/**",
+    "**/api/**",
+    "**/*.d.ts",
+    "**/*.d.mts",
+    "**/test-results/**",
+    "**/playwright-report/**"
+  ],
+  "minTokens": 50,
+  "minLines": 5,
+  "reporters": ["console"],
+  "exitCode": 1
+}

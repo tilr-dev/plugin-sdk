@@ -6,7 +6,6 @@ import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { configDir } from './paths.js'
 
-
 /** The socket path: `--socket` (taken out of `argv`), $TILR_CONTROL, `control: socket:` in
  *  the selected config folder's config.yml, else the default. */
 export function controlSocket(argv = []) {
@@ -34,11 +33,17 @@ const expand = path => path.replace(/^~(?=$|\/)/, homedir())
 /** Sends one request and resolves to the reply's result (the object minus `id` and `ok`); rejects
  *  with the reply's error, or with what went wrong on the way. */
 export function control(request, { socket = controlSocket(), timeout = 30_000 } = {}) {
-  if (!socket) return Promise.reject(new Error("Tilr Control is off (control.socket in the selected config folder’s config.yml is empty)"))
+  if (!socket)
+    return Promise.reject(
+      new Error('Tilr Control is off (control.socket in the selected config folder’s config.yml is empty)'),
+    )
   return new Promise((resolve, reject) => {
     const connection = createConnection(socket)
     let buffer = ''
-    const timer = setTimeout(() => { connection.destroy(); reject(new Error(`Tilr Control: no reply in ${timeout}ms`)) }, timeout)
+    const timer = setTimeout(() => {
+      connection.destroy()
+      reject(new Error(`Tilr Control: no reply in ${timeout}ms`))
+    }, timeout)
     connection.setEncoding('utf8')
     connection.on('connect', () => connection.write(JSON.stringify({ id: 1, ...request }) + '\n'))
     connection.on('data', chunk => {
@@ -48,7 +53,11 @@ export function control(request, { socket = controlSocket(), timeout = 30_000 } 
       clearTimeout(timer)
       connection.end()
       let reply
-      try { reply = JSON.parse(buffer.slice(0, newline)) } catch (error) { return reject(new Error(`Tilr Control: bad reply: ${error.message}`)) }
+      try {
+        reply = JSON.parse(buffer.slice(0, newline))
+      } catch (error) {
+        return reject(new Error(`Tilr Control: bad reply: ${error.message}`))
+      }
       const { ok, error } = reply
       delete reply.id
       delete reply.ok
@@ -57,9 +66,13 @@ export function control(request, { socket = controlSocket(), timeout = 30_000 } 
     })
     connection.on('error', error => {
       clearTimeout(timer)
-      reject(error.code === 'ENOENT' || error.code === 'ECONNREFUSED'
-        ? new Error(`Tilr is not running, or its control socket is not ${socket} (control.socket in the selected config folder's config.yml)`)
-        : error)
+      reject(
+        error.code === 'ENOENT' || error.code === 'ECONNREFUSED'
+          ? new Error(
+              `Tilr is not running, or its control socket is not ${socket} (control.socket in the selected config folder's config.yml)`,
+            )
+          : error,
+      )
     })
   })
 }
@@ -92,7 +105,12 @@ export async function evaluate(js, options = {}) {
 /** `ctx.ui.snapshot()`: the windows and their controls with refs, as text (or JSON); `lines`:
  *  of a document's text (40 by default). */
 export function snapshot({ window, json = false, lines, ...options } = {}) {
-  return call('ui', 'snapshot', [{ ...(window ? { window } : {}), ...(lines !== undefined ? { lines } : {}), format: json ? 'json' : 'text' }], options)
+  return call(
+    'ui',
+    'snapshot',
+    [{ ...(window ? { window } : {}), ...(lines !== undefined ? { lines } : {}), format: json ? 'json' : 'text' }],
+    options,
+  )
 }
 
 /** `ctx.ui.act(ref, action, value, { wait, lines })`: resolves to the snapshot of the ref's
@@ -124,27 +142,53 @@ export function describeText(rows, one = false) {
     const width = Math.max(...rows.map(r => r.name.length))
     const from = r => `${r.plugin ?? '?'}${r.version ? `@${r.version}` : ''}`
     const fromWidth = Math.max(...rows.map(r => from(r).length))
-    return rows.map(r => {
-      const hidden = internal(r.methods).length + internal(r.fields).length
-      const shown = [...r.callable ? ['(…)'] : [], ...contract(r.methods).map(signature), ...contract(r.fields).map(f => `.${f.name}`), ...hidden ? [`+${hidden} internal`] : []]
-      return `${r.name.padEnd(width)}  ${from(r).padEnd(fromWidth)}  ${shown.join(' ')}`.trimEnd()
-    }).join('\n')
+    return rows
+      .map(r => {
+        const hidden = internal(r.methods).length + internal(r.fields).length
+        const shown = [
+          ...(r.callable ? ['(…)'] : []),
+          ...contract(r.methods).map(signature),
+          ...contract(r.fields).map(f => `.${f.name}`),
+          ...(hidden ? [`+${hidden} internal`] : []),
+        ]
+        return `${r.name.padEnd(width)}  ${from(r).padEnd(fromWidth)}  ${shown.join(' ')}`.trimEnd()
+      })
+      .join('\n')
   }
-  return rows.map(r => [
-    `${r.name}  ${r.plugin ?? '?'}${r.version ? `@${r.version}` : ''}`,
-    ...r.callable ? [`callable: ${r.name}(…), the service itself is a function`] : [],
-    `methods: ${contract(r.methods).map(signature).join(' ') || '—'}`,
-    ...internal(r.methods).length ? [`internal: ${internal(r.methods).map(signature).join(' ')}  ${INTERNAL}`] : [],
-    `fields: ${contract(r.fields).map(f => f.name).join(' ') || '—'}`,
-    ...internal(r.fields).length ? [`internal: ${internal(r.fields).map(f => f.name).join(' ')}  ${INTERNAL}`] : [],
-    '',
-    r.api ?? `(no api.d.ts: plugins/${r.plugin}/api.d.ts is not in the site)`,
-  ].join('\n')).join('\n\n')
+  return rows
+    .map(r =>
+      [
+        `${r.name}  ${r.plugin ?? '?'}${r.version ? `@${r.version}` : ''}`,
+        ...(r.callable ? [`callable: ${r.name}(…), the service itself is a function`] : []),
+        `methods: ${contract(r.methods).map(signature).join(' ') || '—'}`,
+        ...(internal(r.methods).length
+          ? [`internal: ${internal(r.methods).map(signature).join(' ')}  ${INTERNAL}`]
+          : []),
+        `fields: ${
+          contract(r.fields)
+            .map(f => f.name)
+            .join(' ') || '—'
+        }`,
+        ...(internal(r.fields).length
+          ? [
+              `internal: ${internal(r.fields)
+                .map(f => f.name)
+                .join(' ')}  ${INTERNAL}`,
+            ]
+          : []),
+        '',
+        r.api ?? `(no api.d.ts: plugins/${r.plugin}/api.d.ts is not in the site)`,
+      ].join('\n'),
+    )
+    .join('\n\n')
 }
 
 /** `ctx.plugins.list()` with each row's Error reduced to its message (an Error is `{}` as JSON). */
 export function plugins(options) {
-  return evaluate(`return window.tilr.root.get('plugins').list().map(r => ({ ...r, error: r.error ? r.error.message : null }))`, options)
+  return evaluate(
+    `return window.tilr.root.get('plugins').list().map(r => ({ ...r, error: r.error ? r.error.message : null }))`,
+    options,
+  )
 }
 
 /** The shell's `debug` command (Control.swift), over the Performance web plugin's collector:
@@ -185,22 +229,28 @@ export function debugText(status) {
     const state = status.requested ? 'on' : 'off'
     return `collection ${state}: ${status.reloading ? 'switching, the page reloads' : `already ${state}, no reload`} (${status.mechanism ?? 'performance'})`
   }
-  return Object.entries(status).map(([key, value]) => `${key}: ${typeof value === 'string' ? value : JSON.stringify(value)}`).join('\n')
+  return Object.entries(status)
+    .map(([key, value]) => `${key}: ${typeof value === 'string' ? value : JSON.stringify(value)}`)
+    .join('\n')
 }
 
 /** The page's metric series (`metric()` from 'tilr'), from the Performance plugin's `series()`
  *  (an older plugin's snapshot()), through `eval` (no native command): `{ ended, metrics }`, or
  *  null while collection is off. */
 export function debugMetrics(options = {}) {
-  return evaluate(`if (!("performance" in $)) throw new Error('Install and enable the Performance web plugin first.')
+  return evaluate(
+    `if (!("performance" in $)) throw new Error('Install and enable the Performance web plugin first.')
 const p = $.performance
 const ended = performance.now()
 if (typeof p.series === 'function') { const metrics = p.series(); return metrics && { ended, metrics } }
 const d = p.snapshot()
-return d && { ended: d.ended, metrics: d.metrics ?? [] }`, options)
+return d && { ended: d.ended, metrics: d.metrics ?? [] }`,
+    options,
+  )
 }
 
-const quantile = (values, q) => {
+/** The q-quantile (0..1) of `values` by the nearest-rank method; null for none. */
+export const quantile = (values, q) => {
   if (!values.length) return null
   const sorted = [...values].sort((a, b) => a - b)
   return sorted[Math.max(0, Math.ceil(sorted.length * q) - 1)]
@@ -210,7 +260,11 @@ const quantile = (values, q) => {
 const METRIC_RING = 256
 /** Labels in key order, as text: the order of an object's keys does not survive Tilr Control
  *  (Control.swift's JSONSerialization). */
-const labelText = (labels, sep = ',') => Object.keys(labels).sort().map(k => `${k}=${labels[k]}`).join(sep)
+const labelText = (labels, sep = ',') =>
+  Object.keys(labels)
+    .sort()
+    .map(k => `${k}=${labels[k]}`)
+    .join(sep)
 
 /** A snapshot's metric series as rows: count, rate/s (over the whole seconds of the `window` ms
  *  before `ended`), p50 / p95 / max of the observations in the window, `n` of them and their
@@ -218,36 +272,76 @@ const labelText = (labels, sep = ',') => Object.keys(labels).sort().map(k => `${
  *  window), `last` (the window's Metrics table); only names starting with `filter`. */
 export function metricRows({ ended, metrics }, { filter = '', window = 10_000 } = {}) {
   const from = ended - window
-  const first = Math.ceil(from / 1000), last = Math.floor(ended / 1000) - 1
+  const first = Math.ceil(from / 1000),
+    last = Math.floor(ended / 1000) - 1
   const seconds = last - first + 1
-  return metrics.filter(m => m.name.startsWith(filter)).map(m => {
-    const values = m.recent.filter(([t]) => t > from && t <= ended).map(([, v]) => v)
-    const count = m.seconds.filter(([s]) => s >= first && s <= last).reduce((n, [, c]) => n + c, 0)
-    const coverage = m.count > METRIC_RING && m.recent.length >= METRIC_RING && m.recent[0][0] > from ? 'tail' : 'full'
-    return { name: m.name, labels: m.labels, count: m.count, rate: seconds > 0 ? count / seconds : 0, p50: quantile(values, 0.5), p95: quantile(values, 0.95), max: values.length ? Math.max(...values) : null, n: values.length, coverage, last: m.last }
-  }).sort((a, b) => a.name.localeCompare(b.name) || labelText(a.labels).localeCompare(labelText(b.labels)))
+  return metrics
+    .filter(m => m.name.startsWith(filter))
+    .map(m => {
+      const values = m.recent.filter(([t]) => t > from && t <= ended).map(([, v]) => v)
+      const count = m.seconds.filter(([s]) => s >= first && s <= last).reduce((n, [, c]) => n + c, 0)
+      const coverage =
+        m.count > METRIC_RING && m.recent.length >= METRIC_RING && m.recent[0][0] > from ? 'tail' : 'full'
+      return {
+        name: m.name,
+        labels: m.labels,
+        count: m.count,
+        rate: seconds > 0 ? count / seconds : 0,
+        p50: quantile(values, 0.5),
+        p95: quantile(values, 0.95),
+        max: values.length ? Math.max(...values) : null,
+        n: values.length,
+        coverage,
+        last: m.last,
+      }
+    })
+    .sort((a, b) => a.name.localeCompare(b.name) || labelText(a.labels).localeCompare(labelText(b.labels)))
 }
 
 /** metricRows() as an aligned text table. */
 export function metricsText(rows) {
   if (!rows.length) return 'no metrics'
-  const fmt = n => n === null ? '-' : Math.abs(n) >= 1000 ? n.toFixed(0) : n.toFixed(2)
-  const table = [['name', 'labels', 'count', 'rate/s', 'p50', 'p95', 'max', 'n', 'last'],
-    ...rows.map(r => [r.name, labelText(r.labels) || '-', String(r.count), r.rate.toFixed(1), fmt(r.p50), fmt(r.p95), fmt(r.max), `${r.n ?? '-'}${r.coverage === 'tail' ? ' (tail)' : ''}`, fmt(r.last)])]
+  const fmt = n => (n === null ? '-' : Math.abs(n) >= 1000 ? n.toFixed(0) : n.toFixed(2))
+  const table = [
+    ['name', 'labels', 'count', 'rate/s', 'p50', 'p95', 'max', 'n', 'last'],
+    ...rows.map(r => [
+      r.name,
+      labelText(r.labels) || '-',
+      String(r.count),
+      r.rate.toFixed(1),
+      fmt(r.p50),
+      fmt(r.p95),
+      fmt(r.max),
+      `${r.n ?? '-'}${r.coverage === 'tail' ? ' (tail)' : ''}`,
+      fmt(r.last),
+    ]),
+  ]
   const widths = table[0].map((_, i) => Math.max(...table.map(row => row[i].length)))
-  return table.map(row => row.map((cell, i) => i < 2 ? cell.padEnd(widths[i]) : cell.padStart(widths[i])).join('  ').trimEnd()).join('\n')
+  return table
+    .map(row =>
+      row
+        .map((cell, i) => (i < 2 ? cell.padEnd(widths[i]) : cell.padStart(widths[i])))
+        .join('  ')
+        .trimEnd(),
+    )
+    .join('\n')
 }
 
 // ---- windows: finding one by what an agent knows of it, listing them compactly ---------------
 
 /** A layout row as a line: `<id>  <type>  <mode>  "<title>"`, ` [focused]` when it is. */
-const windowLine = row => `${row.id}  ${row.type}  ${row.mode}  ${JSON.stringify(row.title)}${row.focused ? ' [focused]' : ''}`
+const windowLine = row =>
+  `${row.id}  ${row.type}  ${row.mode}  ${JSON.stringify(row.title)}${row.focused ? ' [focused]' : ''}`
 
 /** Whether a row is drawn: not a nested window its container does not show (a tab behind
  *  another: placed nowhere, or measured 0×0), nor one inside such a window. */
 export function shown(row, rows) {
   const byId = new Map(rows.map(r => [r.id, r]))
-  for (let r = row, seen = new Set(); r && !seen.has(r.id); seen.add(r.id), r = r.parent ? byId.get(r.parent) : undefined) {
+  for (
+    let r = row, seen = new Set();
+    r && !seen.has(r.id);
+    seen.add(r.id), r = r.parent ? byId.get(r.parent) : undefined
+  ) {
     if (r.mode === 'nested' && !(r.rect?.width > 0 && r.rect?.height > 0)) return false
   }
   return true
@@ -273,21 +367,31 @@ export function resolveWindow(query, rows) {
   const byId = rows.find(row => row.id === query)
   if (byId) return byId
   const glob = /[*?]/.test(query)
-    ? new RegExp(`^${query.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.')}$`, 'i')
+    ? new RegExp(
+        `^${query
+          .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+          .replace(/\*/g, '.*')
+          .replace(/\?/g, '.')}$`,
+        'i',
+      )
     : null
   const lower = query.toLowerCase()
   const tiers = [
     rows.filter(row => row.title === query),
     rows.filter(row => row.type === query),
-    rows.filter(row => glob ? glob.test(row.title) : row.title.toLowerCase().includes(lower)),
+    rows.filter(row => (glob ? glob.test(row.title) : row.title.toLowerCase().includes(lower))),
   ]
   for (const found of tiers) {
     if (found.length === 1) return found[0]
     if (found.length > 1) {
-      throw new Error(`"${query}" matches ${found.length} windows; name one by id:\n${found.map(row => `${row.id} ${JSON.stringify(row.title)} (${row.type})`).join('\n')}`)
+      throw new Error(
+        `"${query}" matches ${found.length} windows; name one by id:\n${found.map(row => `${row.id} ${JSON.stringify(row.title)} (${row.type})`).join('\n')}`,
+      )
     }
   }
-  throw new Error(`no window "${query}"; the open ones:\n${rows.length ? rows.map(row => `${row.id} ${JSON.stringify(row.title)} (${row.type})`).join('\n') : '(none)'}`)
+  throw new Error(
+    `no window "${query}"; the open ones:\n${rows.length ? rows.map(row => `${row.id} ${JSON.stringify(row.title)} (${row.type})`).join('\n') : '(none)'}`,
+  )
 }
 
 /** The id of the window `query` names in the running page (`resolveWindow`). */

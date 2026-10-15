@@ -1,0 +1,9 @@
+# gitleaks: the default rules, plus what is known not to be a secret here.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "bench metric keys in tests (typing.keyToPaint.p95) match generic-api-key"
+targetRules = ["generic-api-key"]
+regexTarget = "match"
+regexes = ['''typing\.[A-Za-z]+\.p\d+''']

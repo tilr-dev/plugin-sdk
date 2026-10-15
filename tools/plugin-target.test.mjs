@@ -33,9 +33,15 @@ test('standalone install preserves existing plugins, page and state; repeat is i
   const result = await addSitePlugins(args)
   assert.deepEqual(result.plugins, ['webviews', 'browser'])
   assert.deepEqual(JSON.parse(await readFile(join(site, 'plugins.json'), 'utf8')), {
-    plugins: ['terminal', 'webviews', 'browser'], extra: true,
+    plugins: ['terminal', 'webviews', 'browser'],
+    extra: true,
   })
-  for (const [path, value] of [['index.html', 'original page'], ['store.json', 'original state'], ['plugins/terminal/index.js', 'original terminal'], ['plugins/browser/index.js', 'browser']]) {
+  for (const [path, value] of [
+    ['index.html', 'original page'],
+    ['store.json', 'original state'],
+    ['plugins/terminal/index.js', 'original terminal'],
+    ['plugins/browser/index.js', 'browser'],
+  ]) {
     assert.equal(await readFile(join(site, path), 'utf8'), value)
   }
   assert.deepEqual((await addSitePlugins(args)).changed, [])
@@ -59,7 +65,8 @@ test('invalid sources, unsupported refs and missing builds never install earlier
     { sources: [] },
     { sources: ['webviews', 'https://example.org/plugin.git'] },
     { sources: [local], ref: 'v1' },
-  ]) await assert.rejects(addSitePlugins({ site, kit, ...args }))
+  ])
+    await assert.rejects(addSitePlugins({ site, kit, ...args }))
   await rm(join(local, 'dist/index.js'))
   await assert.rejects(addSitePlugins({ site, kit, sources: ['webviews', local] }), /no index.js/)
   assert.equal(await readFile(join(site, 'plugins.json'), 'utf8'), before)
@@ -75,17 +82,26 @@ test('a failed local build leaves the running site untouched', async t => {
 
 test('local build output, including a custom dist directory, is installed', async t => {
   const { site, kit, local, put } = await fixture(t)
-  await put(join(local, 'package.json'), JSON.stringify({
-    name: 'browser', tilr: { dist: 'output' }, scripts: { build: 'node build.cjs' },
-  }))
-  await put(join(local, 'build.cjs'), "require('fs').mkdirSync('output', {recursive:true}); require('fs').writeFileSync('output/index.js', 'fresh build')")
+  await put(
+    join(local, 'package.json'),
+    JSON.stringify({
+      name: 'browser',
+      tilr: { dist: 'output' },
+      scripts: { build: 'node build.cjs' },
+    }),
+  )
+  await put(
+    join(local, 'build.cjs'),
+    "require('fs').mkdirSync('output', {recursive:true}); require('fs').writeFileSync('output/index.js', 'fresh build')",
+  )
   await addSitePlugins({ site, kit, sources: [local] })
   assert.equal(await readFile(join(site, 'plugins/browser/index.js'), 'utf8'), 'fresh build')
 })
 
 test('the MCP server publishes standalone installation support over stdio', () => {
   const result = spawnSync(process.execPath, [new URL('./tilr-mcp.mjs', import.meta.url).pathname], {
-    input: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }) + '\n', encoding: 'utf8',
+    input: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }) + '\n',
+    encoding: 'utf8',
   })
   assert.equal(result.status, 0, result.stderr)
   const reply = JSON.parse(result.stdout)

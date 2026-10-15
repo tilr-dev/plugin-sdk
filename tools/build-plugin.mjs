@@ -45,8 +45,18 @@ const KIT_PACKAGE = JSON.parse(readFileSync(join(KIT, 'package.json'), 'utf8'))
 
 /** The bare names the page's import map resolves (static/index.html): left as imports, never
  *  bundled. tools/build-plugin.test.mjs checks this against the import map. */
-export const IMPORT_MAP = ['cordis', '@deepseek-ai/cosmokit', 'tilr', 'tilr/react', 'tilr/ui', 'tilr/native',
-  'react', 'react/jsx-runtime', 'react-dom', 'react-dom/client']
+export const IMPORT_MAP = [
+  'cordis',
+  '@deepseek-ai/cosmokit',
+  'tilr',
+  'tilr/react',
+  'tilr/ui',
+  'tilr/native',
+  'react',
+  'react/jsx-runtime',
+  'react-dom',
+  'react-dom/client',
+]
 /** What src/ may hold besides sources, copied to dist/; the core's build allows the same. */
 export const ASSETS = ['.css', '.json', '.svg', '.png', '.jpg', '.webp', '.woff2', '.txt', '.md']
 /** The export appended to index.js; the runtime reads it (src/lib.ts, stampBuild). */
@@ -74,7 +84,9 @@ export function checkNode(version = process.versions.node, range = KIT_PACKAGE.e
   for (let i = 0; i < 3; i++) {
     if ((have[i] ?? 0) > want[i]) return
     if ((have[i] ?? 0) < want[i]) {
-      throw new Error(`@tilr-dev/plugin needs Node ${range}; ${process.execPath} is v${version}. Install a newer Node (nvm install 22, brew install node) and run again.`)
+      throw new Error(
+        `@tilr-dev/plugin needs Node ${range}; ${process.execPath} is v${version}. Install a newer Node (nvm install 22, brew install node) and run again.`,
+      )
     }
   }
 }
@@ -115,7 +127,11 @@ function apiOf(root, api) {
 async function files(dir) {
   const out = []
   let entries
-  try { entries = await readdir(dir, { withFileTypes: true, recursive: true }) } catch { return out }
+  try {
+    entries = await readdir(dir, { withFileTypes: true, recursive: true })
+  } catch {
+    return out
+  }
   for (const d of entries) {
     if (!d.isFile() || junk(d.name)) continue
     const path = relative(dir, join(d.parentPath, d.name))
@@ -130,7 +146,9 @@ async function files(dir) {
  *  export of the name would be a SyntaxError in the page. */
 export function stamp(code, { version, api }) {
   if (new RegExp(`\\b${STAMP}\\b`).test(code)) {
-    throw new Error(`dist/index.js has a ${STAMP} of its own: the build appends that export (version and api); remove it from the source`)
+    throw new Error(
+      `dist/index.js has a ${STAMP} of its own: the build appends that export (version and api); remove it from the source`,
+    )
   }
   const line = `export const ${STAMP} = ${JSON.stringify({ version, api: `^${api}` })};\n`
   const at = code.lastIndexOf('\n//# sourceMappingURL=')
@@ -160,22 +178,53 @@ async function extraOptions(extra, context) {
  *  `plugins` append, everything else (external, minify, entryPoints, sourcemap…) replaces. */
 function merge(base, extra) {
   const out = { ...base, ...extra }
-  for (const key of ['define', 'loader', 'alias']) if (base[key] || extra[key]) out[key] = { ...base[key], ...extra[key] }
+  for (const key of ['define', 'loader', 'alias'])
+    if (base[key] || extra[key]) out[key] = { ...base[key], ...extra[key] }
   out.plugins = [...(base.plugins ?? []), ...(extra.plugins ?? [])]
   return out
 }
 
 /** The options esbuild.transform takes (bundle: false). */
-const TRANSFORM_KEYS = new Set(['define', 'target', 'minify', 'minifyWhitespace', 'minifyIdentifiers', 'minifySyntax', 'banner', 'footer',
-  'jsx', 'jsxFactory', 'jsxFragment', 'jsxImportSource', 'jsxDev', 'supported', 'charset', 'drop', 'dropLabels', 'pure', 'keepNames',
-  'legalComments', 'sourcemap', 'sourcesContent', 'platform', 'format', 'treeShaking', 'ignoreAnnotations', 'mangleProps', 'reserveProps'])
+const TRANSFORM_KEYS = new Set([
+  'define',
+  'target',
+  'minify',
+  'minifyWhitespace',
+  'minifyIdentifiers',
+  'minifySyntax',
+  'banner',
+  'footer',
+  'jsx',
+  'jsxFactory',
+  'jsxFragment',
+  'jsxImportSource',
+  'jsxDev',
+  'supported',
+  'charset',
+  'drop',
+  'dropLabels',
+  'pure',
+  'keepNames',
+  'legalComments',
+  'sourcemap',
+  'sourcesContent',
+  'platform',
+  'format',
+  'treeShaking',
+  'ignoreAnnotations',
+  'mangleProps',
+  'reserveProps',
+])
 
 /** bundle: false. Checks that every import of the entry resolves in the page (one esbuild pass
  *  that resolves nothing: an import-map name is external, anything else is an error), then
  *  strips the types of the entry alone. Resolves to dist path → bytes. */
 async function transformEntry({ root, entry, define, extra }) {
   for (const key of Object.keys(extra)) {
-    if (!TRANSFORM_KEYS.has(key)) throw new Error(`esbuild.${key}: not an option of a bundle: false build (esbuild.transform); bundle the plugin to use it`)
+    if (!TRANSFORM_KEYS.has(key))
+      throw new Error(
+        `esbuild.${key}: not an option of a bundle: false build (esbuild.transform); bundle the plugin to use it`,
+      )
   }
   const file = join(root, entry)
   const loader = entry.endsWith('.tsx') ? 'tsx' : 'ts'
@@ -186,16 +235,31 @@ async function transformEntry({ root, entry, define, extra }) {
         if (args.kind === 'entry-point') return undefined
         if (IMPORT_MAP.includes(args.path)) return { path: args.path, external: true }
         const where = relative(root, args.importer) || entry
-        const why = args.path.startsWith('.') || args.path.startsWith('/')
-          ? 'with bundle: false the plugin is this one file, and the page would 404 on another'
-          : `only the page's import map resolves a bare name (${IMPORT_MAP.join(', ')})`
-        return { errors: [{ text: `${where} imports '${args.path}': ${why}. Bundle the plugin (bundle: true) or drop the import.` }] }
+        const why =
+          args.path.startsWith('.') || args.path.startsWith('/')
+            ? 'with bundle: false the plugin is this one file, and the page would 404 on another'
+            : `only the page's import map resolves a bare name (${IMPORT_MAP.join(', ')})`
+        return {
+          errors: [
+            { text: `${where} imports '${args.path}': ${why}. Bundle the plugin (bundle: true) or drop the import.` },
+          ],
+        }
       })
     },
   }
   await esbuild.build({
-    entryPoints: [file], bundle: true, write: false, logLevel: 'silent', platform: 'browser', format: 'esm',
-    jsx: 'automatic', target: 'safari17', define, tsconfigRaw: TSCONFIG_RAW, plugins: [guard], outdir: join(root, 'dist'),
+    entryPoints: [file],
+    bundle: true,
+    write: false,
+    logLevel: 'silent',
+    platform: 'browser',
+    format: 'esm',
+    jsx: 'automatic',
+    target: 'safari17',
+    define,
+    tsconfigRaw: TSCONFIG_RAW,
+    plugins: [guard],
+    outdir: join(root, 'dist'),
   })
   const { code } = await esbuild.transform(await readFile(file, 'utf8'), {
     loader,
@@ -215,52 +279,69 @@ async function transformEntry({ root, entry, define, extra }) {
 /** bundle: true. Resolves to dist path → bytes, and esbuild's result. */
 async function bundleEntry({ root, entry, define, extra }) {
   const dist = join(root, 'dist')
-  const options = merge({
-    // Relative to absWorkingDir, as a plugin's own build.mjs had it (esbuild names the default
-    // export after the path: `index_default`).
-    entryPoints: [entry],
-    bundle: true,
-    external: IMPORT_MAP,
-    platform: 'browser',
-    format: 'esm',
-    target: 'safari17',
-    jsx: 'automatic',
-    // Linked, not inline: the bundle's sources would make an inline map several times the code.
-    sourcemap: 'linked',
-    // Paths in the map are relative to dist/, where the files end up (written to a temp folder).
-    outdir: dist,
-    charset: 'utf8',
-    write: false,
-    logLevel: 'silent',
-    absWorkingDir: root,
-    define,
-    tsconfigRaw: TSCONFIG_RAW,
-  }, extra)
+  const options = merge(
+    {
+      // Relative to absWorkingDir, as a plugin's own build.mjs had it (esbuild names the default
+      // export after the path: `index_default`).
+      entryPoints: [entry],
+      bundle: true,
+      external: IMPORT_MAP,
+      platform: 'browser',
+      format: 'esm',
+      target: 'safari17',
+      jsx: 'automatic',
+      // Linked, not inline: the bundle's sources would make an inline map several times the code.
+      sourcemap: 'linked',
+      // Paths in the map are relative to dist/, where the files end up (written to a temp folder).
+      outdir: dist,
+      charset: 'utf8',
+      write: false,
+      logLevel: 'silent',
+      absWorkingDir: root,
+      define,
+      tsconfigRaw: TSCONFIG_RAW,
+    },
+    extra,
+  )
   options.write = false
   const result = await esbuild.build(options)
   await report(result.warnings, 'warning')
   const out = new Map()
   for (const file of result.outputFiles) {
     const path = relative(dist, file.path)
-    if (path.startsWith('..')) throw new Error(`esbuild wrote ${file.path}, outside dist/: keep outdir / outfile in dist/`)
+    if (path.startsWith('..'))
+      throw new Error(`esbuild wrote ${file.path}, outside dist/: keep outdir / outfile in dist/`)
     out.set(path, Buffer.from(file.contents))
   }
   return { out, result }
 }
 
 /** Whether `path` is there, a dangling symlink included. */
-const present = path => lstat(path).then(() => true, () => false)
+const present = path =>
+  lstat(path).then(
+    () => true,
+    () => false,
+  )
 
 /** True while process `pid` runs (EPERM: it does, as another user's). */
 function alive(pid) {
-  try { process.kill(pid, 0); return true } catch (error) { return error.code === 'EPERM' }
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (error) {
+    return error.code === 'EPERM'
+  }
 }
 
 /** Removes what a build stopped midway (Ctrl-C, a crash) left in the cache: the temp folders of
  *  processes that are gone. A running process's (a concurrent build) are left alone. */
 async function sweep(cache) {
   let names
-  try { names = await readdir(cache) } catch { return }
+  try {
+    names = await readdir(cache)
+  } catch {
+    return
+  }
   for (const name of names) {
     const pid = Number(/^(?:out|old)-(\d+)-/.exec(name)?.[1])
     if (!pid || pid === process.pid || alive(pid)) continue
@@ -270,7 +351,9 @@ async function sweep(cache) {
 
 /** Moves `from` to `to`, across file systems too. */
 async function move(from, to) {
-  try { await rename(from, to) } catch (error) {
+  try {
+    await rename(from, to)
+  } catch (error) {
     if (error.code !== 'EXDEV') throw error
     await cp(from, to, { recursive: true })
     await rm(from, { recursive: true, force: true })
@@ -279,12 +362,15 @@ async function move(from, to) {
 
 /** One build of the plugin at `root` into a temp folder, swapped into dist/ when complete.
  *  Resolves to the dist paths written, or null when it failed (dist/ untouched). */
+// eslint-disable-next-line complexity -- the build sequence (bundle or transform, api.d.ts, assets, copy, hooks, atomic swap) kept in one place so the swap is visibly last
 async function buildOnce(options, root, state) {
   const started = Date.now()
   const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'))
   const version = pkg.version ?? '0.0.0'
   const api = apiVersion(root)
-  const cache = existsSync(join(root, 'node_modules')) ? join(root, 'node_modules', '.cache', 'tilr-plugin-build') : join(root, '.tilr-build')
+  const cache = existsSync(join(root, 'node_modules'))
+    ? join(root, 'node_modules', '.cache', 'tilr-plugin-build')
+    : join(root, '.tilr-build')
   await mkdir(cache, { recursive: true })
   await sweep(cache)
   // The pid: sweep() tells a dead build's folder from a running one's. mkdtemp's folder is 0700;
@@ -297,7 +383,18 @@ async function buildOnce(options, root, state) {
     const entry = entryOf(root, options.entry)
     const apiFile = apiOf(root, options.api)
     const bundle = options.bundle !== false
-    const context = { root, out, dist, version, api, name: pluginName(pkg), entry, bundle, watching: state.watching, argv: state.argv }
+    const context = {
+      root,
+      out,
+      dist,
+      version,
+      api,
+      name: pluginName(pkg),
+      entry,
+      bundle,
+      watching: state.watching,
+      argv: state.argv,
+    }
     const extra = await extraOptions(options.esbuild, context)
     const define = { __TILR_VERSION__: JSON.stringify(version), __TILR_API__: JSON.stringify(api), ...options.define }
     let outputs
@@ -309,7 +406,10 @@ async function buildOnce(options, root, state) {
       await report(messagesOf(error), 'error')
       return null
     }
-    if (!outputs.has('index.js')) throw new Error(`no dist/index.js among the outputs (${[...outputs.keys()].join(', ')}): the entry must be named index`)
+    if (!outputs.has('index.js'))
+      throw new Error(
+        `no dist/index.js among the outputs (${[...outputs.keys()].join(', ')}): the entry must be named index`,
+      )
     outputs.set('index.js', Buffer.from(stamp(outputs.get('index.js').toString('utf8'), { version, api })))
     if (apiFile) outputs.set('api.d.ts', await readFile(join(root, apiFile)))
 
@@ -321,7 +421,10 @@ async function buildOnce(options, root, state) {
       if (/\.test(-d)?\.tsx?$/.test(path) || /\.d\.ts$/.test(path)) continue
       if (/^\.tsx?$/.test(ext)) {
         if (!bundle && join(dirname(entry), path) !== entry && join(dirname(entry), path) !== apiFile) {
-          warn(state, `skipped ${join(dirname(entry), path)}: with bundle: false only ${entry} is compiled (a plugin is one file)`)
+          warn(
+            state,
+            `skipped ${join(dirname(entry), path)}: with bundle: false only ${entry} is compiled (a plugin is one file)`,
+          )
         }
         continue
       }
@@ -342,17 +445,21 @@ async function buildOnce(options, root, state) {
     // Every output is there: dist/ is replaced at once (two renames on one file system). The
     // last good dist/ goes into the temp folder (removed below with it), and back if the second
     // rename fails. A symlink at dist/ is moved aside the same way: dist/ becomes a folder.
-    const old = await present(dist) ? join(tmp, 'old') : null
+    const old = (await present(dist)) ? join(tmp, 'old') : null
     if (old) await move(dist, old)
-    try { await move(out, dist) } catch (error) {
-      if (old && !await present(dist)) await move(old, dist)
+    try {
+      await move(out, dist)
+    } catch (error) {
+      if (old && !(await present(dist))) await move(old, dist)
       throw error
     }
     const written = await files(dist)
     const index = outputs.get('index.js')
     const rest = written.filter(path => path !== 'index.js' && !path.endsWith('.map'))
     const shown = rest.length > 12 ? [...rest.slice(0, 12), `… ${rest.length - 12} more`] : rest
-    console.log(`[build] ${Date.now() - started}ms: dist/index.js (${Math.round(index.length / 1024)}K)${shown.map(path => ` dist/${path}`).join('')} (version ${version}, api ^${api})`)
+    console.log(
+      `[build] ${Date.now() - started}ms: dist/index.js (${Math.round(index.length / 1024)}K)${shown.map(path => ` dist/${path}`).join('')} (version ${version}, api ^${api})`,
+    )
     return written
   } finally {
     await rm(tmp, { recursive: true, force: true })
@@ -373,7 +480,8 @@ function warn(state, message) {
  */
 export async function installPlugin({ root = process.cwd(), argv = process.argv.slice(2) } = {}) {
   const site = siteDir(argv)
-  if (!existsSync(join(site, 'index.html'))) throw new Error(`${site} has no Tilr page yet: run npm run install:site in the core repo first`)
+  if (!existsSync(join(site, 'index.html')))
+    throw new Error(`${site} has no Tilr page yet: run npm run install:site in the core repo first`)
   const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'))
   const name = pluginName(pkg)
   const changed = await installSite({ site, plugins: { [name]: join(root, 'dist') } })
@@ -390,7 +498,9 @@ export async function buildPlugin(options = {}) {
   const installing = argv.includes('--install')
   const state = { watching, argv, warned: new Set() }
   const once = async () => {
-    try { return await buildOnce(options, root, state) } catch (error) {
+    try {
+      return await buildOnce(options, root, state)
+    } catch (error) {
       console.error(`[build] ${error.message}`)
       return null
     }
@@ -403,7 +513,9 @@ export async function buildPlugin(options = {}) {
       return { ok: false, files: [], close() {} }
     }
     if (installing) {
-      try { await installPlugin({ root, argv }) } catch (error) {
+      try {
+        await installPlugin({ root, argv })
+      } catch (error) {
         console.error(`[install] ${error.message}`)
         process.exitCode = 1
         return { ok: false, files, close() {} }
@@ -421,7 +533,11 @@ export async function buildPlugin(options = {}) {
     const files = await once()
     last = { ok: !!files, files: files ?? [] }
     if (!files || !installing) return
-    try { await installPlugin({ root, argv }) } catch (error) { console.error(`[install] ${error.message}`) }
+    try {
+      await installPlugin({ root, argv })
+    } catch (error) {
+      console.error(`[install] ${error.message}`)
+    }
   }
   let running = run()
   await running
@@ -441,15 +557,25 @@ export async function buildPlugin(options = {}) {
   const ignored = file => file.split(sep).some(junk) || (src === root && generated(file))
   const watchers = [
     // fs.watch is recursive on macOS (and Linux since Node 20).
-    watch(src, { recursive: true }, (event, file) => { if (!file || !ignored(file)) schedule() }),
+    watch(src, { recursive: true }, (event, file) => {
+      if (!file || !ignored(file)) schedule()
+    }),
     // The folder, not the file: an editor saves package.json by replacing it.
-    watch(root, (event, file) => { if (file === 'package.json') schedule() }),
+    watch(root, (event, file) => {
+      if (file === 'package.json') schedule()
+    }),
   ]
   for (const watcher of watchers) watcher.on('error', error => console.error(`[build] watching: ${error.message}`))
-  console.log(`[build] watching ${relative(root, src) || '.'}/ and package.json → dist/${installing ? ' → the Tilr site' : ''}`)
+  console.log(
+    `[build] watching ${relative(root, src) || '.'}/ and package.json → dist/${installing ? ' → the Tilr site' : ''}`,
+  )
   return {
-    get ok() { return last.ok },
-    get files() { return last.files },
+    get ok() {
+      return last.ok
+    },
+    get files() {
+      return last.files
+    },
     close() {
       closed = true
       clearTimeout(timer)

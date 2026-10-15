@@ -3,7 +3,18 @@
 import { after, describe, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawn, spawnSync } from 'node:child_process'
-import { existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -12,13 +23,18 @@ import { IMPORT_MAP, checkNode, stamp } from './build-plugin.mjs'
 const BUILD = new URL('./build-plugin.mjs', import.meta.url).href
 const KIT = JSON.parse(readFileSync(fileURLToPath(new URL('../package.json', import.meta.url)), 'utf8'))
 const dirs = []
-after(() => { for (const dir of dirs) rmSync(dir, { recursive: true, force: true }) })
+after(() => {
+  for (const dir of dirs) rmSync(dir, { recursive: true, force: true })
+})
 
 /** A plugin repo in a temp folder: package.json + `files` (path → text). */
 function fixture(files, pkg = {}) {
   const root = mkdtempSync(join(tmpdir(), 'tilr-build-plugin-'))
   dirs.push(root)
-  write(root, { 'package.json': JSON.stringify({ name: '@tilr-dev/plugin-fix', version: '1.2.3', type: 'module', ...pkg }), ...files })
+  write(root, {
+    'package.json': JSON.stringify({ name: '@tilr-dev/plugin-fix', version: '1.2.3', type: 'module', ...pkg }),
+    ...files,
+  })
   return root
 }
 
@@ -31,7 +47,26 @@ function write(root, files) {
 
 /** Writes `root`/build.mjs, `buildPlugin(<options>)` (source text), as a plugin repo has it. */
 function script(root, options = '{}') {
-  writeFileSync(join(root, 'build.mjs'), `import { buildPlugin } from ${JSON.stringify(BUILD)}\nawait buildPlugin(${options})\n`)
+  writeFileSync(
+    join(root, 'build.mjs'),
+    `import { buildPlugin } from ${JSON.stringify(BUILD)}\nawait buildPlugin(${options})\n`,
+  )
+}
+
+/** `node build.mjs --watch` in `root`: the child, its output so far, and how many builds it logged. */
+function watchBuild(root) {
+  const child = spawn(process.execPath, ['build.mjs', '--watch'], { cwd: root })
+  let output = ''
+  child.stdout.on('data', data => {
+    output += data
+  })
+  child.stderr.on('data', data => {
+    output += data
+  })
+  const log = () => output
+  const builds = () =>
+    output.split('\n').filter(line => line.startsWith('[build] ') && line.includes('dist/index.js')).length
+  return { child, log, builds }
 }
 
 /** `node build.mjs` in `root`, with `buildPlugin(<options>)`. */
@@ -42,7 +77,11 @@ function build(root, options = '{}', argv = []) {
 }
 
 const read = (root, path) => readFileSync(join(root, path), 'utf8')
-const list = dir => readdirSync(dir, { recursive: true, withFileTypes: true }).filter(d => d.isFile()).map(d => join(d.parentPath, d.name).slice(dir.length + 1)).sort()
+const list = dir =>
+  readdirSync(dir, { recursive: true, withFileTypes: true })
+    .filter(d => d.isFile())
+    .map(d => join(d.parentPath, d.name).slice(dir.length + 1))
+    .sort()
 
 const PLUGIN = {
   'src/index.ts': `import { definePlugin } from 'tilr'
@@ -66,21 +105,33 @@ describe('buildPlugin', () => {
     assert.equal(r.status, 0, r.output)
     assert.deepEqual(list(join(root, 'dist')), ['api.d.ts', 'img/icon.svg', 'index.js', 'index.js.map', 'style.css'])
     const js = read(root, 'dist/index.js')
-    assert.match(js, /from "tilr"/)                   // the import map's, left as is
-    assert.doesNotMatch(js, /from "\.\/helper/)    // bundled
+    assert.match(js, /from "tilr"/) // the import map's, left as is
+    assert.doesNotMatch(js, /from "\.\/helper/) // bundled
     assert.doesNotMatch(js, /__TILR_(VERSION|API)__/)
     assert.ok(js.includes(`greet("1.2.3", ${JSON.stringify(KIT.version)})`), js)
     // Without an installed @tilr-dev/plugin the API is this package's own version.
-    assert.ok(js.includes(`export const __tilrBuild = {"version":"1.2.3","api":"^${KIT.version}"};\n//# sourceMappingURL=index.js.map`), js)
+    assert.ok(
+      js.includes(
+        `export const __tilrBuild = {"version":"1.2.3","api":"^${KIT.version}"};\n//# sourceMappingURL=index.js.map`,
+      ),
+      js,
+    )
     assert.equal(read(root, 'dist/api.d.ts'), PLUGIN['src/api.ts'])
     assert.deepEqual(JSON.parse(read(root, 'dist/index.js.map')).sources, ['../src/index.ts', '../src/helper.ts'])
-    assert.match(r.output, /\[build\] \d+ms: dist\/index\.js \(\d+K\) dist\/api\.d\.ts dist\/img\/icon\.svg dist\/style\.css \(version 1\.2\.3, api \^/)
+    assert.match(
+      r.output,
+      /\[build\] \d+ms: dist\/index\.js \(\d+K\) dist\/api\.d\.ts dist\/img\/icon\.svg dist\/style\.css \(version 1\.2\.3, api \^/,
+    )
   })
 
   test("__TILR_API__ is the installed @tilr-dev/plugin's version", () => {
     const root = fixture({
       ...PLUGIN,
-      'node_modules/@tilr-dev/plugin/package.json': JSON.stringify({ name: '@tilr-dev/plugin', version: '9.8.7', exports: { './package.json': './package.json' } }),
+      'node_modules/@tilr-dev/plugin/package.json': JSON.stringify({
+        name: '@tilr-dev/plugin',
+        version: '9.8.7',
+        exports: { './package.json': './package.json' },
+      }),
     })
     const r = build(root)
     assert.equal(r.status, 0, r.output)
@@ -111,19 +162,22 @@ describe('buildPlugin', () => {
     assert.ok(existsSync(join(root, 'dist/marker')))
 
     // The hook writes into the temp folder, not into dist/; then dist/ is that folder.
-    const ok = build(root, `{ hooks: { async after({ out, dist, files }) {
+    const ok = build(
+      root,
+      `{ hooks: { async after({ out, dist, files }) {
       const fs = await import('node:fs')
       if (out === dist || fs.existsSync(dist + '/extra.txt')) throw new Error('not a temp folder')
       if (!files.includes('index.js')) throw new Error('index.js missing')
       fs.writeFileSync(out + '/extra.txt', 'extra')
-    } } }`)
+    } } }`,
+    )
     assert.equal(ok.status, 0, ok.output)
     assert.equal(read(root, 'dist/extra.txt'), 'extra')
-    assert.ok(!existsSync(join(root, 'dist/marker')))   // replaced as a whole
-    assert.deepEqual(readdirSync(join(root, '.tilr-build')), [])   // no temp folder left
+    assert.ok(!existsSync(join(root, 'dist/marker'))) // replaced as a whole
+    assert.deepEqual(readdirSync(join(root, '.tilr-build')), []) // no temp folder left
   })
 
-  test('dist/ gets a folder\'s usual mode (not the temp folder\'s 0700); a dead build\'s temp folders are swept, a live one\'s kept', () => {
+  test("dist/ gets a folder's usual mode (not the temp folder's 0700); a dead build's temp folders are swept, a live one's kept", () => {
     const root = fixture(PLUGIN)
     const plain = join(root, 'plain')
     mkdirSync(plain)
@@ -185,14 +239,22 @@ export default definePlugin({ name: 'fix', apply() { void (<Frame />) } })
     assert.match(js, /\/\/# sourceMappingURL=data:application\/json;base64,/)
     assert.ok(js.includes('export const __tilrBuild = '))
 
-    const foreign = fixture({ 'src/index.ts': `import { definePlugin } from 'tilr'\nimport lodash from 'lodash'\nexport default definePlugin({ name: 'fix', apply() { lodash() } })\n` })
+    const foreign = fixture({
+      'src/index.ts': `import { definePlugin } from 'tilr'\nimport lodash from 'lodash'\nexport default definePlugin({ name: 'fix', apply() { lodash() } })\n`,
+    })
     const bad = build(foreign, '{ bundle: false }')
     assert.equal(bad.status, 1)
-    assert.match(bad.output, /src\/index\.ts imports 'lodash': only the page's import map resolves a bare name \(cordis, @deepseek-ai\/cosmokit, tilr, /)
+    assert.match(
+      bad.output,
+      /src\/index\.ts imports 'lodash': only the page's import map resolves a bare name \(cordis, @deepseek-ai\/cosmokit, tilr, /,
+    )
     assert.match(bad.output, /Bundle the plugin \(bundle: true\) or drop the import/)
     assert.ok(!existsSync(join(foreign, 'dist')))
 
-    const relative = fixture({ 'src/index.ts': `import { x } from './util.ts'\nexport default { name: 'fix', apply() { x() } }\n`, 'src/util.ts': 'export const x = (): void => {}\n' })
+    const relative = fixture({
+      'src/index.ts': `import { x } from './util.ts'\nexport default { name: 'fix', apply() { x() } }\n`,
+      'src/util.ts': 'export const x = (): void => {}\n',
+    })
     const rel = build(relative, '{ bundle: false }')
     assert.equal(rel.status, 1)
     assert.match(rel.output, /src\/index\.ts imports '\.\/util\.ts': with bundle: false the plugin is this one file/)
@@ -201,21 +263,22 @@ export default definePlugin({ name: 'fix', apply() { void (<Frame />) } })
   test('--watch rebuilds on a change under src/ and of package.json', async () => {
     const root = fixture(PLUGIN)
     script(root)
-    const child = spawn(process.execPath, ['build.mjs', '--watch'], { cwd: root })
-    let output = ''
-    const builds = () => output.split('\n').filter(line => line.startsWith('[build] ') && line.includes('dist/index.js')).length
-    child.stdout.on('data', data => { output += data })
-    child.stderr.on('data', data => { output += data })
+    const { child, log, builds } = watchBuild(root)
     const until = async (check, what) => {
       for (let i = 0; i < 100 && !check(); i++) await new Promise(done => setTimeout(done, 50))
-      assert.ok(check(), `${what}:\n${output}`)
+      assert.ok(check(), `${what}:\n${log()}`)
     }
     try {
-      await until(() => output.includes('[build] watching'), 'the watch did not start')
+      await until(() => log().includes('[build] watching'), 'the watch did not start')
       assert.equal(builds(), 1)
       write(root, { 'src/helper.ts': `export const greet = (v: string, api: string): string => 'hello ' + v + api\n` })
-      await until(() => builds() === 2 && read(root, 'dist/index.js').includes('hello '), 'no rebuild after a source change')
-      write(root, { 'package.json': JSON.stringify({ name: '@tilr-dev/plugin-fix', version: '1.2.4', type: 'module' }) })
+      await until(
+        () => builds() === 2 && read(root, 'dist/index.js').includes('hello '),
+        'no rebuild after a source change',
+      )
+      write(root, {
+        'package.json': JSON.stringify({ name: '@tilr-dev/plugin-fix', version: '1.2.4', type: 'module' }),
+      })
       await until(() => read(root, 'dist/index.js').includes('"version":"1.2.4"'), 'no rebuild after a version bump')
     } finally {
       child.kill()
@@ -226,23 +289,21 @@ export default definePlugin({ name: 'fix', apply() { void (<Frame />) } })
     const root = fixture(PLUGIN)
     // A slow build (the hook waits 600 ms), and six changes 80 ms apart while it runs.
     script(root, `{ hooks: { after: () => new Promise(done => setTimeout(done, 600)) } }`)
-    const child = spawn(process.execPath, ['build.mjs', '--watch'], { cwd: root })
-    let output = ''
-    const builds = () => output.split('\n').filter(line => line.startsWith('[build] ') && line.includes('dist/index.js')).length
-    child.stdout.on('data', data => { output += data })
-    child.stderr.on('data', data => { output += data })
+    const { child, log, builds } = watchBuild(root)
     const sleep = ms => new Promise(done => setTimeout(done, ms))
     try {
-      for (let i = 0; i < 100 && !output.includes('[build] watching'); i++) await sleep(50)
-      assert.equal(builds(), 1, output)
+      for (let i = 0; i < 100 && !log().includes('[build] watching'); i++) await sleep(50)
+      assert.equal(builds(), 1, log())
       for (let i = 0; i < 6; i++) {
-        write(root, { 'src/helper.ts': `export const greet = (v: string, api: string): string => 'v${i} ' + v + api\n` })
+        write(root, {
+          'src/helper.ts': `export const greet = (v: string, api: string): string => 'v${i} ' + v + api\n`,
+        })
         await sleep(80)
       }
       // The first change starts a build, the rest wait as one: two builds, then quiet.
       await sleep(2500)
-      assert.ok(builds() <= 3, `${builds()} builds:\n${output}`)
-      assert.match(read(root, 'dist/index.js'), /v5 /, output)
+      assert.ok(builds() <= 3, `${builds()} builds:\n${log()}`)
+      assert.match(read(root, 'dist/index.js'), /v5 /, log())
     } finally {
       child.kill()
     }
@@ -262,10 +323,18 @@ export default definePlugin({ name: 'fix', apply() { void (<Frame />) } })
   })
 
   test('stamp() goes before the sourceMappingURL comment', () => {
-    assert.equal(stamp('a\n//# sourceMappingURL=index.js.map\n', { version: '1.0.0', api: '0.1.14' }),
-      'a\nexport const __tilrBuild = {"version":"1.0.0","api":"^0.1.14"};\n//# sourceMappingURL=index.js.map\n')
-    assert.equal(stamp('a', { version: '1.0.0', api: '0.1.14' }), 'a\nexport const __tilrBuild = {"version":"1.0.0","api":"^0.1.14"};\n')
+    assert.equal(
+      stamp('a\n//# sourceMappingURL=index.js.map\n', { version: '1.0.0', api: '0.1.14' }),
+      'a\nexport const __tilrBuild = {"version":"1.0.0","api":"^0.1.14"};\n//# sourceMappingURL=index.js.map\n',
+    )
+    assert.equal(
+      stamp('a', { version: '1.0.0', api: '0.1.14' }),
+      'a\nexport const __tilrBuild = {"version":"1.0.0","api":"^0.1.14"};\n',
+    )
     // The source's own __tilrBuild would be a second export of the name: the build says so.
-    assert.throws(() => stamp('export const __tilrBuild = {};\n', { version: '1.0.0', api: '0.1.14' }), /has a __tilrBuild of its own/)
+    assert.throws(
+      () => stamp('export const __tilrBuild = {};\n', { version: '1.0.0', api: '0.1.14' }),
+      /has a __tilrBuild of its own/,
+    )
   })
 })

@@ -1,0 +1,4 @@
+# The git hooks of the repo standard, from the SDK: format + lint + gitleaks on the staged files,
+# commitlint on the message, `npm run verify` before a push.
+extends:
+  - node_modules/@tilr-dev/plugin/presets/lefthook.yml

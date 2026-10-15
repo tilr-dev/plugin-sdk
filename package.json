@@ -2,29 +2,69 @@
   "name": "@tilr-dev/plugin",
   "version": "0.1.14",
   "type": "module",
-  "engines": { "node": ">=22.18" },
-  "description": "The kit for writing Tilr plugins in their own repos: the plugin API's types, the shared build and CLI (tilr-plugin, tilr), the e2e harness with the built core page, shared tsconfig, eslint and Playwright config.",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "description": "The kit for writing Tilr plugins in their own repos: the plugin API's types, the shared build and CLI (tilr-plugin, tilr), the e2e harness with the built core page, shared tsconfig, eslint and Playwright config, and the repo standard's checks (tilr-plugin verify) with their presets (Biome, lefthook, commitlint, jscpd, knip).",
   "license": "MIT OR Apache-2.0",
   "author": "Denis Shirokov",
-  "publishConfig": { "access": "public" },
-  "bin": { "tilr": "tools/tilr.mjs", "tilr-plugin": "tools/tilr-plugin.mjs" },
+  "publishConfig": {
+    "access": "public"
+  },
+  "bin": {
+    "tilr": "tools/tilr.mjs",
+    "tilr-plugin": "tools/tilr-plugin.mjs"
+  },
   "exports": {
-    ".": { "types": "./api/tilr.d.ts" },
-    "./react": { "types": "./api/tilr/react.d.ts" },
-    "./ui": { "types": "./api/tilr/ui.d.ts" },
-    "./native": { "types": "./api/tilr/native.d.ts" },
-    "./test": { "types": "./dist/test/harness.d.ts", "default": "./dist/test/harness.js" },
-    "./test/node": { "types": "./tools/node-resolve.d.mts", "default": "./tools/node-resolve.mjs" },
-    "./test/global-setup": { "types": "./tools/global-setup.d.mts", "default": "./tools/global-setup.mjs" },
-    "./build": { "types": "./tools/build-plugin.d.mts", "default": "./tools/build-plugin.mjs" },
-    "./playwright": { "types": "./tools/playwright.d.mts", "default": "./tools/playwright.mjs" },
+    ".": {
+      "types": "./api/tilr.d.ts"
+    },
+    "./react": {
+      "types": "./api/tilr/react.d.ts"
+    },
+    "./ui": {
+      "types": "./api/tilr/ui.d.ts"
+    },
+    "./native": {
+      "types": "./api/tilr/native.d.ts"
+    },
+    "./test": {
+      "types": "./dist/test/harness.d.ts",
+      "default": "./dist/test/harness.js"
+    },
+    "./test/node": {
+      "types": "./tools/node-resolve.d.mts",
+      "default": "./tools/node-resolve.mjs"
+    },
+    "./test/global-setup": {
+      "types": "./tools/global-setup.d.mts",
+      "default": "./tools/global-setup.mjs"
+    },
+    "./build": {
+      "types": "./tools/build-plugin.d.mts",
+      "default": "./tools/build-plugin.mjs"
+    },
+    "./playwright": {
+      "types": "./tools/playwright.d.mts",
+      "default": "./tools/playwright.mjs"
+    },
     "./site/*": "./site/*",
     "./tsconfig.base.json": "./tsconfig.base.json",
     "./tsconfig.plugin.json": "./tsconfig.plugin.json",
     "./tsconfig.plugin-test.json": "./tsconfig.plugin-test.json",
-    "./globals": { "types": "./globals.d.ts" },
+    "./globals": {
+      "types": "./globals.d.ts"
+    },
     "./eslint": "./eslint.base.js",
-    "./install": { "types": "./tools/install-site.d.ts", "default": "./tools/install-site.js" },
+    "./install": {
+      "types": "./tools/install-site.d.ts",
+      "default": "./tools/install-site.js"
+    },
+    "./biome": "./presets/biome.json",
+    "./lefthook.yml": "./presets/lefthook.yml",
+    "./commitlint": "./presets/commitlint.js",
+    "./jscpd.json": "./presets/jscpd.json",
+    "./knip.json": "./presets/knip.json",
     "./package.json": "./package.json"
   },
   "files": [
@@ -39,6 +79,8 @@
     "tsconfig.plugin.json",
     "tsconfig.plugin-test.json",
     "eslint.base.js",
+    "presets/",
+    "templates/",
     "CHANGELOG.md",
     "LICENSE-MIT",
     "LICENSE-APACHE"
@@ -46,12 +88,26 @@
   "scripts": {
     "build": "tsc -p tsconfig.harness.json",
     "check": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json && eslint .",
-    "test": "node --test 'tools/*.test.mjs'",
+    "format": "biome format --write .",
+    "test": "npm run test:unit",
+    "test:unit": "node --test \"tools/*.test.mjs\"",
+    "verify": "node tools/tilr-plugin.mjs verify",
+    "verify:full": "node tools/tilr-plugin.mjs verify --full",
     "sync:runtime": "node scripts/sync-runtime.mjs",
     "api:check": "node scripts/api-sync.mjs",
     "api:sync": "node scripts/api-sync.mjs --write",
+    "prepare": "node scripts/prepare.mjs",
     "prepack": "npm run build && node scripts/sync-runtime.mjs --check",
     "pack:check": "npm pack --dry-run"
+  },
+  "dependencies": {
+    "@biomejs/biome": "^2.5.15",
+    "@commitlint/cli": "^21.2.3",
+    "@commitlint/config-conventional": "^21.2.3",
+    "@eslint-community/eslint-plugin-eslint-comments": "^4.8.1",
+    "conventional-changelog-conventionalcommits": "^10.4.1",
+    "jscpd": "^5.4.1",
+    "knip": "^6.41.0"
   },
   "peerDependencies": {
     "@eslint/js": ">=10",
@@ -60,15 +116,31 @@
     "cordis": "^4.0.1",
     "esbuild": ">=0.25",
     "eslint": ">=10",
+    "lefthook": "^2.2.2",
     "typescript-eslint": "^8.71.1"
   },
   "peerDependenciesMeta": {
-    "@eslint/js": { "optional": true },
-    "@playwright/test": { "optional": true },
-    "@types/react": { "optional": true },
-    "esbuild": { "optional": true },
-    "eslint": { "optional": true },
-    "typescript-eslint": { "optional": true }
+    "@eslint/js": {
+      "optional": true
+    },
+    "@playwright/test": {
+      "optional": true
+    },
+    "@types/react": {
+      "optional": true
+    },
+    "esbuild": {
+      "optional": true
+    },
+    "eslint": {
+      "optional": true
+    },
+    "lefthook": {
+      "optional": true
+    },
+    "typescript-eslint": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -78,6 +150,7 @@
     "cordis": "npm:@deepseek-ai/cordis@4.0.1",
     "esbuild": "^0.28.2",
     "eslint": "^10.12.0",
+    "lefthook": "^2.2.2",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.71.1"
   }

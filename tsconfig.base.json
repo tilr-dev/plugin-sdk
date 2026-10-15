@@ -24,7 +24,12 @@
     // tilr.js. For tsc it is the API snapshot shipped in the package. The core overrides this
     // with its sources (tsconfig.json).
     "jsx": "react-jsx",
-    "paths": { "tilr": ["./api/tilr.d.ts"], "tilr/react": ["./api/tilr/react.d.ts"], "tilr/ui": ["./api/tilr/ui.d.ts"], "tilr/native": ["./api/tilr/native.d.ts"] }
+    "paths": {
+      "tilr": ["./api/tilr.d.ts"],
+      "tilr/react": ["./api/tilr/react.d.ts"],
+      "tilr/ui": ["./api/tilr/ui.d.ts"],
+      "tilr/native": ["./api/tilr/native.d.ts"]
+    }
   },
   // `__TILR_VERSION__`. `files` is kept when the extending config sets only `include`.
   "files": ["./globals.d.ts"]

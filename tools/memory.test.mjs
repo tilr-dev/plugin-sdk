@@ -2,7 +2,26 @@
 // analysis of probes and its text, the driver with a fake clock and page.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { analyzeMemory, categoriesText, categoryReport, drawdowns, FOOTPRINT, footprintOf, footprintText, judge, maxDrawdown, memoryPath, memoryText, PROBE, runMemory, SQUEEZE, squeezeOf, squeezeText, squeezeVerdict, slope } from './memory.mjs'
+import {
+  analyzeMemory,
+  categoriesText,
+  categoryReport,
+  drawdowns,
+  FOOTPRINT,
+  footprintOf,
+  footprintText,
+  judge,
+  maxDrawdown,
+  memoryPath,
+  memoryText,
+  PROBE,
+  runMemory,
+  SQUEEZE,
+  squeezeOf,
+  squeezeText,
+  squeezeVerdict,
+  slope,
+} from './memory.mjs'
 
 const MIB = 1048576
 /** `n` points 5 s apart, value f(i) MiB. */
@@ -12,7 +31,13 @@ test('slope: least squares in MiB per minute', () => {
   assert.equal(slope(series(25, i => 100 + i)), 12) // 1 MiB per 5 s
   assert.equal(slope(series(25, () => 100)), 0)
   assert.equal(slope([[0, MIB]]), null)
-  assert.equal(slope([[0, MIB], [0, 2 * MIB]]), null) // no time
+  assert.equal(
+    slope([
+      [0, MIB],
+      [0, 2 * MIB],
+    ]),
+    null,
+  ) // no time
 })
 
 test('max drawdown: the largest drop after a peak, as a share of the peak', () => {
@@ -26,8 +51,14 @@ test('drawdowns: falls of 5 % or more from a local high, each ended by a climb b
   const saw = []
   for (let k = 0; k < 3; k++) for (let i = 0; i <= 4; i++) saw.push(100 + i * 5)
   assert.equal(drawdowns(saw).length, 2) // two falls 120 → 100 (the series ends at 120)
-  assert.deepEqual(drawdowns([...saw, 100]).map(d => Math.round(d.depth * 1000) / 1000), [0.167, 0.167, 0.167])
-  assert.deepEqual(drawdowns([...saw, 100]).map(d => d.low), [5, 10, 15]) // where each low is
+  assert.deepEqual(
+    drawdowns([...saw, 100]).map(d => Math.round(d.depth * 1000) / 1000),
+    [0.167, 0.167, 0.167],
+  )
+  assert.deepEqual(
+    drawdowns([...saw, 100]).map(d => d.low),
+    [5, 10, 15],
+  ) // where each low is
   assert.deepEqual(drawdowns([100, 98, 101, 99, 102]), []) // under 5 %
   assert.equal(drawdowns([100, 90, 89, 88]).length, 1) // still falling at the end
 })
@@ -47,7 +78,7 @@ test('verdicts: sawtooth, linear growth, plateau, growth with collections, flat,
   assert.equal(leak.first, 100 * MIB)
   assert.equal(leak.last, 123 * MIB)
   // Grows for the first third, one collection, then level.
-  const plateau = judge(series(24, i => i < 8 ? 100 + i * 5 : i === 10 ? 130 : 140))
+  const plateau = judge(series(24, i => (i < 8 ? 100 + i * 5 : i === 10 ? 130 : 140)))
   assert.equal(plateau.verdict, 'plateau')
   assert.ok(plateau.thirds.first > 0)
   assert.ok(plateau.thirds.last < plateau.thirds.first * 0.1)
@@ -60,18 +91,46 @@ test('verdicts: sawtooth, linear growth, plateau, growth with collections, flat,
   assert.equal(judge(series(5, i => 100 + i)).verdict, 'too-short')
 })
 
-const probe = (at, { web = 100, app = 50, listeners = { layout: 10, editor: 3 }, domNodes = 1000, windows = 2, reactRoots = 3 } = {}) => ({
-  at, t: at, processes: [{ role: 'WebContent', scope: 'page', pid: 7, memory: web * MIB, cpu: 1 }, { role: 'Tilr', scope: 'app', pid: 1, memory: app * MIB, cpu: 0.5 }],
-  windows, domNodes, listeners: { total: Object.values(listeners).reduce((a, b) => a + b, 0), byPlugin: listeners }, reactRoots, canvases: 1, images: 0,
+const probe = (
+  at,
+  { web = 100, app = 50, listeners = { layout: 10, editor: 3 }, domNodes = 1000, windows = 2, reactRoots = 3 } = {},
+) => ({
+  at,
+  t: at,
+  processes: [
+    { role: 'WebContent', scope: 'page', pid: 7, memory: web * MIB, cpu: 1 },
+    { role: 'Tilr', scope: 'app', pid: 1, memory: app * MIB, cpu: 0.5 },
+  ],
+  windows,
+  domNodes,
+  listeners: { total: Object.values(listeners).reduce((a, b) => a + b, 0), byPlugin: listeners },
+  reactRoots,
+  canvases: 1,
+  images: 0,
 })
 
 test('analysis: per process, counts first / last / Δ, the plugins whose listeners grew, hints', () => {
-  const probes = Array.from({ length: 24 }, (_, i) => probe(i * 5000, { web: 100 + i, listeners: { layout: 10, editor: 3 + i, files: i > 10 ? 2 : 1 }, domNodes: 1000 + i * 40 }))
+  const probes = Array.from({ length: 24 }, (_, i) =>
+    probe(i * 5000, {
+      web: 100 + i,
+      listeners: { layout: 10, editor: 3 + i, files: i > 10 ? 2 : 1 },
+      domNodes: 1000 + i * 40,
+    }),
+  )
   const r = analyzeMemory(probes)
-  assert.deepEqual(r.processes.map(p => [p.role, p.pid, p.verdict, p.samples]), [['WebContent', 7, 'growing', 24], ['Tilr', 1, 'flat', 24]])
+  assert.deepEqual(
+    r.processes.map(p => [p.role, p.pid, p.verdict, p.samples]),
+    [
+      ['WebContent', 7, 'growing', 24],
+      ['Tilr', 1, 'flat', 24],
+    ],
+  )
   assert.deepEqual(r.counts.listeners, { first: 14, last: 38, delta: 24 })
   assert.deepEqual(r.counts.windows, { first: 2, last: 2, delta: 0 })
-  assert.deepEqual(r.listeners, [{ plugin: 'editor', first: 3, last: 26, delta: 23 }, { plugin: 'files', first: 1, last: 2, delta: 1 }])
+  assert.deepEqual(r.listeners, [
+    { plugin: 'editor', first: 3, last: 26, delta: 23 },
+    { plugin: 'files', first: 1, last: 2, delta: 1 },
+  ])
   assert.match(r.hints[0], /^listeners grew \(14 → 38\): editor \+23, files \+1/)
   assert.match(r.hints[1], /^DOM leak: 920 more DOM nodes/)
   assert.ok(!r.hints.some(h => h.includes('JavaScript Allocations'))) // not with listeners and DOM growing too
@@ -84,22 +143,37 @@ test('analysis: per process, counts first / last / Δ, the plugins whose listene
 })
 
 test('analysis: WebContent growing alone points at the JS heap; a pane process at scrollback', () => {
-  const probes = Array.from({ length: 24 }, (_, i) => ({ ...probe(i * 5000, { web: 100 + i }), processes: [
-    { role: 'WebContent', scope: 'page', pid: 7, memory: (100 + i) * MIB, cpu: 1 },
-    { role: 'pane', scope: 'server', pid: 9, memory: (10 + i) * MIB, cpu: 0 },
-  ] }))
+  const probes = Array.from({ length: 24 }, (_, i) => ({
+    ...probe(i * 5000, { web: 100 + i }),
+    processes: [
+      { role: 'WebContent', scope: 'page', pid: 7, memory: (100 + i) * MIB, cpu: 1 },
+      { role: 'pane', scope: 'server', pid: 9, memory: (10 + i) * MIB, cpu: 0 },
+    ],
+  }))
   const { hints } = analyzeMemory(probes)
   assert.equal(hints.length, 2)
   assert.match(hints[0], /JS heap.*Safari Web Inspector → Timelines → JavaScript Allocations.*`footprint 7`/)
   assert.match(hints[1], /^pane 9 grows .*scrollback, normal up to the server's scrollback limit/)
   assert.deepEqual(analyzeMemory([]).processes, [])
-  assert.match(memoryText({ seconds: 10, interval: 5, probes: [], report: analyzeMemory([]), error: 'boom' }), /no process samples[\s\S]*error: boom \(a partial result\)$/)
-  assert.match(memoryPath('/tmp/d', new Date('2026-10-12T08:09:10.123Z')), /^\/tmp\/d\/memory-2026-10-12T08-09-10Z\.json$/)
+  assert.match(
+    memoryText({ seconds: 10, interval: 5, probes: [], report: analyzeMemory([]), error: 'boom' }),
+    /no process samples[\s\S]*error: boom \(a partial result\)$/,
+  )
+  assert.match(
+    memoryPath('/tmp/d', new Date('2026-10-12T08:09:10.123Z')),
+    /^\/tmp\/d\/memory-2026-10-12T08-09-10Z\.json$/,
+  )
 })
 
 /** A footprint process (MiB). */
-const fp = (pid, role, { malloc = 0, graphics = 0, js = 0, jit = 0, other = 0 } = {}) => ({ pid, role, scope: 'page', reclaimable: 0,
-  footprint: (malloc + graphics + js + jit + other) * MIB, categories: { malloc: malloc * MIB, graphics: graphics * MIB, js: js * MIB, jit: jit * MIB, other: other * MIB } })
+const fp = (pid, role, { malloc = 0, graphics = 0, js = 0, jit = 0, other = 0 } = {}) => ({
+  pid,
+  role,
+  scope: 'page',
+  reclaimable: 0,
+  footprint: (malloc + graphics + js + jit + other) * MIB,
+  categories: { malloc: malloc * MIB, graphics: graphics * MIB, js: js * MIB, jit: jit * MIB, other: other * MIB },
+})
 /** 24 regular probes of WebContent memory `f(i)` MiB, plus probes marked 'squeeze' after the first
  *  (at 2 s) and after the last (at 117 s) with `after` [first, last] MiB. */
 const squeezed = (f, [first, last]) => {
@@ -110,7 +184,11 @@ const squeezed = (f, [first, last]) => {
 }
 
 test('squeeze verdict: retained over max(10 MiB, 5 %) is a leak suspect; given back is cache-only; else the trend', () => {
-  const at = (peak, first, last) => ({ peak: peak * MIB, afterSqueeze: { first: first * MIB, last: last * MIB }, retained: (last - first) * MIB })
+  const at = (peak, first, last) => ({
+    peak: peak * MIB,
+    afterSqueeze: { first: first * MIB, last: last * MIB },
+    retained: (last - first) * MIB,
+  })
   assert.equal(squeezeVerdict(at(300, 100, 111), 'flat'), 'leak-suspect') // +11 MiB ≥ 10
   assert.equal(squeezeVerdict(at(300, 100, 109), 'growing'), 'cache-only') // under 10 MiB, peak 191 above
   assert.equal(squeezeVerdict(at(1000, 400, 420), 'flat'), 'leak-suspect') // 20 MiB ≥ 5 % of 400
@@ -147,8 +225,18 @@ test('categories: peak vs after squeeze per process, Δ, the table and the graph
   const footprints = [
     { at: 0, processes: [fp(7, 'webcontent', { malloc: 150, graphics: 200, js: 1, other: 20 })] },
     { at: 2000, phase: 'squeeze', processes: [fp(7, 'webcontent', { malloc: 90, graphics: 200, js: 1, other: 20 })] },
-    { at: 60_000, processes: [fp(7, 'webcontent', { malloc: 209, graphics: 200, js: 1, other: 25 }), fp(1, 'tilr', { malloc: 60, other: 10 })] },
-    { at: 117_000, phase: 'squeeze', processes: [fp(7, 'webcontent', { malloc: 93, graphics: 201, js: 1, other: 20 })] },
+    {
+      at: 60_000,
+      processes: [
+        fp(7, 'webcontent', { malloc: 209, graphics: 200, js: 1, other: 25 }),
+        fp(1, 'tilr', { malloc: 60, other: 10 }),
+      ],
+    },
+    {
+      at: 117_000,
+      phase: 'squeeze',
+      processes: [fp(7, 'webcontent', { malloc: 93, graphics: 201, js: 1, other: 20 })],
+    },
   ]
   const [web, app] = categoryReport(footprints)
   assert.equal(web.peak.at, 60_000) // the largest outside the squeezes
@@ -167,29 +255,46 @@ test('categories: peak vs after squeeze per process, Δ, the table and the graph
   assert.match(text, /^tilr \/ page +1 +peak +70\.0/m)
   const { hints, categories } = analyzeMemory([], { footprints })
   assert.equal(categories.length, 2)
-  assert.match(hints.join('\n'), /webcontent 7: malloc 209\.0 → 93\.0 MiB after the squeeze: uncollected garbage, not a leak/)
+  assert.match(
+    hints.join('\n'),
+    /webcontent 7: malloc 209\.0 → 93\.0 MiB after the squeeze: uncollected garbage, not a leak/,
+  )
   // Graphics the largest part: the compositing hint, the squeeze did not free it.
-  const tiles = analyzeMemory([], { footprints: [
-    { at: 0, processes: [fp(7, 'webcontent', { malloc: 100, graphics: 200 })] },
-    { at: 9000, phase: 'squeeze', processes: [fp(7, 'webcontent', { malloc: 90, graphics: 200 })] },
-  ] })
-  assert.match(tiles.hints[0], /^webcontent 7: graphics is the largest part, 200\.0 of 300\.0 MiB; after the squeeze 200\.0 MiB \(\+0\.0\): a squeeze does not free it: compositing layers\/tiles: open Safari Web Inspector → Layers; `tilr ctl debug inspect`/)
+  const tiles = analyzeMemory([], {
+    footprints: [
+      { at: 0, processes: [fp(7, 'webcontent', { malloc: 100, graphics: 200 })] },
+      { at: 9000, phase: 'squeeze', processes: [fp(7, 'webcontent', { malloc: 90, graphics: 200 })] },
+    ],
+  })
+  assert.match(
+    tiles.hints[0],
+    /^webcontent 7: graphics is the largest part, 200\.0 of 300\.0 MiB; after the squeeze 200\.0 MiB \(\+0\.0\): a squeeze does not free it: compositing layers\/tiles: open Safari Web Inspector → Layers; `tilr ctl debug inspect`/,
+  )
   assert.equal(tiles.hints.length, 1) // malloc 100 → 90 is not much
 })
 
-test('replies by their shape: undefined or an older app\'s answer is n/a', () => {
+test("replies by their shape: undefined or an older app's answer is n/a", () => {
   assert.equal(footprintOf(undefined), null)
   assert.equal(footprintOf(null), null)
   assert.equal(footprintOf([{ name: 'WebContent' }]), null) // a sample's answer
   assert.equal(footprintOf('Unknown performance request.'), null)
-  assert.deepEqual(footprintOf({ processes: [fp(7, 'webcontent', { malloc: 1 }), { pid: 2 }], took: 120 }).processes.map(p => p.pid), [7])
+  assert.deepEqual(
+    footprintOf({ processes: [fp(7, 'webcontent', { malloc: 1 }), { pid: 2 }], took: 120 }).processes.map(p => p.pid),
+    [7],
+  )
   assert.equal(squeezeOf(undefined), null)
   assert.equal(squeezeOf({ shown: true }), null)
   assert.deepEqual(squeezeOf({ before: 2, after: 1 }), { method: '', before: 2, after: 1 })
   assert.equal(footprintText(null), 'footprint: n/a (update the Mac app)')
   assert.equal(squeezeText(null), 'squeeze: n/a (update the Mac app)')
-  assert.match(squeezeText({ method: 'memory-pressure', before: 435 * MIB, after: 319 * MIB }), /^squeeze \(memory-pressure\): WebContent 435\.0 → 319\.0 MiB \(-116\.0\)\n\(a squeeze may be system-wide/)
-  assert.match(footprintText({ processes: [fp(7, 'webcontent', { malloc: 209, graphics: 200 })], took: 140 }), /^webcontent \/ page +7 +409\.0 +209\.0 +200\.0 +0\.0 +0\.0 +0\.0 +0\.0\ntook 140 ms$/m)
+  assert.match(
+    squeezeText({ method: 'memory-pressure', before: 435 * MIB, after: 319 * MIB }),
+    /^squeeze \(memory-pressure\): WebContent 435\.0 → 319\.0 MiB \(-116\.0\)\n\(a squeeze may be system-wide/,
+  )
+  assert.match(
+    footprintText({ processes: [fp(7, 'webcontent', { malloc: 209, graphics: 200 })], took: 140 }),
+    /^webcontent \/ page +7 +409\.0 +209\.0 +200\.0 +0\.0 +0\.0 +0\.0 +0\.0\ntook 140 ms$/m,
+  )
 })
 
 /** A page for runMemory(): a fake clock, WebContent memory from `memory(t)`, footprint and squeeze
@@ -200,13 +305,24 @@ function fakePage({ memory = () => 100, footprint, squeeze } = {}) {
   return {
     calls,
     now: () => t,
-    wait: async ms => { t += ms },
+    wait: async ms => {
+      t += ms
+    },
     page: {
       debug: async () => ({ enabled: true, dir: '/tmp/d' }),
       evaluate: async js => {
-        if (js === PROBE) { calls.push('probe'); return { t, ...probe(t, { web: memory(t) }) } }
-        if (js === FOOTPRINT) { calls.push('footprint'); return footprint?.(t) }
-        if (js === SQUEEZE) { calls.push('squeeze'); return squeeze?.(t) }
+        if (js === PROBE) {
+          calls.push('probe')
+          return { t, ...probe(t, { web: memory(t) }) }
+        }
+        if (js === FOOTPRINT) {
+          calls.push('footprint')
+          return footprint?.(t)
+        }
+        if (js === SQUEEZE) {
+          calls.push('squeeze')
+          return squeeze?.(t)
+        }
         throw new Error(`unexpected eval ${js}`)
       },
     },
@@ -216,7 +332,14 @@ function fakePage({ memory = () => 100, footprint, squeeze } = {}) {
 test('runMemory: an older app (undefined replies) gives the probes alone, n/a for categories and squeeze', async () => {
   const fake = fakePage()
   const logs = []
-  const { result } = await runMemory({ seconds: 30, interval: 5, now: fake.now, wait: fake.wait, page: fake.page, log: l => logs.push(l) })
+  const { result } = await runMemory({
+    seconds: 30,
+    interval: 5,
+    now: fake.now,
+    wait: fake.wait,
+    page: fake.page,
+    log: l => logs.push(l),
+  })
   assert.equal(result.probes.length, 7)
   assert.deepEqual(result.support, { footprint: false, squeeze: false })
   assert.deepEqual(result.footprints, [])
@@ -230,7 +353,14 @@ test('runMemory: an older app (undefined replies) gives the probes alone, n/a fo
   assert.equal(result.error, undefined)
   // --no-squeeze: never asked.
   const off = fakePage()
-  const { result: r2 } = await runMemory({ seconds: 10, interval: 5, squeeze: false, now: off.now, wait: off.wait, page: off.page })
+  const { result: r2 } = await runMemory({
+    seconds: 10,
+    interval: 5,
+    squeeze: false,
+    now: off.now,
+    wait: off.wait,
+    page: off.page,
+  })
   assert.ok(!off.calls.includes('squeeze'))
   assert.match(memoryText(r2), /^squeeze: off \(--no-squeeze\)$/m)
 })
@@ -244,12 +374,21 @@ test('runMemory: squeezes after the warm-up and at the end, footprints at every 
   })
   const { result } = await runMemory({ seconds: 60, interval: 5, now: fake.now, wait: fake.wait, page: fake.page })
   assert.equal(result.squeezes.length, 2)
-  assert.deepEqual(result.squeezes.map(s => s.at), [0, 60_000])
+  assert.deepEqual(
+    result.squeezes.map(s => s.at),
+    [0, 60_000],
+  )
   const after = result.probes.filter(p => p.phase === 'squeeze')
-  assert.deepEqual(after.map(p => p.at), [3000, 63_000]) // 3 s after each squeeze
+  assert.deepEqual(
+    after.map(p => p.at),
+    [3000, 63_000],
+  ) // 3 s after each squeeze
   assert.equal(result.probes.length, 13 + 2)
   assert.equal(result.footprints.length, 15)
-  assert.deepEqual(result.footprints.filter(f => f.phase === 'squeeze').map(f => f.at), [3000, 63_000])
+  assert.deepEqual(
+    result.footprints.filter(f => f.phase === 'squeeze').map(f => f.at),
+    [3000, 63_000],
+  )
   assert.deepEqual(result.support, { footprint: true, squeeze: true })
   const web = result.report.processes.find(p => p.role === 'WebContent')
   assert.equal(web.retained, (101.2 + 24) * MIB - 101.2 * MIB)

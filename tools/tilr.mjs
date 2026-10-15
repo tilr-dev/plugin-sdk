@@ -66,15 +66,48 @@ import { createConnection } from 'node:net'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { installSite, pluginName } from './install-site.js'
 import { corePlugins } from './paths.js'
-import { act, call, control, controlSocket, debug, debugMetrics, debugText, describe, describeText, evaluate, metricRows, metricsText, plugins, resolveWindow, snapshot, windowId } from './control.mjs'
+import {
+  act,
+  call,
+  control,
+  controlSocket,
+  debug,
+  debugMetrics,
+  debugText,
+  describe,
+  describeText,
+  evaluate,
+  metricRows,
+  metricsText,
+  plugins,
+  resolveWindow,
+  snapshot,
+  windowId,
+} from './control.mjs'
 import { benchText, compareBench, compareText, runBench, SCENARIOS, writeBench } from './bench.mjs'
-import { debugFootprint, debugInspect, debugSqueeze, footprintText, inspectText, memoryPath, memoryText, runMemory, squeezeText } from './memory.mjs'
+import {
+  debugFootprint,
+  debugInspect,
+  debugSqueeze,
+  footprintText,
+  inspectText,
+  memoryPath,
+  memoryText,
+  runMemory,
+  squeezeText,
+} from './memory.mjs'
 
 const KIT = fileURLToPath(new URL('..', import.meta.url)).replace(/\/$/, '')
 const MANIFEST = 'tilr.json'
 
 const usage = () => {
-  console.error(readFileSync(fileURLToPath(import.meta.url), 'utf8').split('\n').slice(4, 40).map(l => l.replace(/^\/\/ ?/, '')).join('\n'))
+  console.error(
+    readFileSync(fileURLToPath(import.meta.url), 'utf8')
+      .split('\n')
+      .slice(4, 40)
+      .map(l => l.replace(/^\/\/ ?/, ''))
+      .join('\n'),
+  )
   process.exit(2)
 }
 
@@ -97,17 +130,21 @@ const expand = path => path.replace(/^~(?=$|\/)/, homedir())
 const run = (cmd, args, cwd, { quiet = false } = {}) => {
   const r = spawnSync(cmd, args, { cwd, stdio: quiet ? ['ignore', 'pipe', 'pipe'] : 'inherit', encoding: 'utf8' })
   if (r.error) throw r.error
-  if (r.status !== 0) throw new Error(`${cmd} ${args.join(' ')} failed in ${cwd}${quiet ? `: ${(r.stderr || r.stdout).trim()}` : ''}`)
+  if (r.status !== 0)
+    throw new Error(`${cmd} ${args.join(' ')} failed in ${cwd}${quiet ? `: ${(r.stderr || r.stdout).trim()}` : ''}`)
   return (r.stdout ?? '').trim()
 }
 const git = (args, cwd) => run('git', args, cwd, { quiet: true })
 /** `npm ci` when the clone has a lockfile (it stays untouched, so the clone stays clean), else
  *  `npm install`. */
-const npmInstall = dir => run('npm', [existsSync(join(dir, 'package-lock.json')) ? 'ci' : 'install', '--no-fund', '--no-audit'], dir)
+const npmInstall = dir =>
+  run('npm', [existsSync(join(dir, 'package-lock.json')) ? 'ci' : 'install', '--no-fund', '--no-audit'], dir)
 
 /** Writes the file when its bytes differ (the shell watches site/). */
 async function put(path, text) {
-  try { if (await readFile(path, 'utf8') === text) return false } catch {}
+  try {
+    if ((await readFile(path, 'utf8')) === text) return false
+  } catch {}
   await mkdir(dirname(path), { recursive: true })
   const tmp = join(dirname(path), `.${basename(path)}.tmp`)
   await writeFile(tmp, text)
@@ -142,11 +179,17 @@ class App {
     if ((await readdir(dir)).length) throw new Error(`${dir} is not empty`)
     await writeFile(join(dir, MANIFEST), `${JSON.stringify({ name, kit: KIT, plugins: [] }, null, 2)}\n`)
     await writeFile(join(dir, '.gitignore'), 'plugins/\nsite/\nweb\n.DS_Store\n')
-    await writeFile(join(dir, 'README.md'), `# ${name}\n\nA Tilr app: \`tilr.json\` lists its plugins, \`plugins/<name>/\` is a git clone of each (edit it and you have forked it; \`tilr plugin update\` merges upstream), \`site/\` is what the Tilr shell shows. Run \`tilr\` for the commands.\n`)
+    await writeFile(
+      join(dir, 'README.md'),
+      `# ${name}\n\nA Tilr app: \`tilr.json\` lists its plugins, \`plugins/<name>/\` is a git clone of each (edit it and you have forked it; \`tilr plugin update\` merges upstream), \`site/\` is what the Tilr shell shows. Run \`tilr\` for the commands.\n`,
+    )
     await symlink(KIT, join(dir, 'web'))
     git(['init', '-q'], dir)
     git(['add', '-A'], dir)
-    git(['-c', 'user.name=tilr', '-c', 'user.email=tilr@localhost', 'commit', '-q', '-m', `${name}: a new Tilr app`], dir)
+    git(
+      ['-c', 'user.name=tilr', '-c', 'user.email=tilr@localhost', 'commit', '-q', '-m', `${name}: a new Tilr app`],
+      dir,
+    )
     const app = new App(dir)
     await app.installCore()
     await app.writePluginsJson()
@@ -165,8 +208,10 @@ class App {
     if (!Array.isArray(manifest.plugins)) throw new Error(`${file}: expected "plugins": [...]`)
     const core = corePlugins(kit)
     for (const p of manifest.plugins) {
-      if (p.source === 'core' && !core.includes(p.name)) throw new Error(`${p.name}: a core plugin the kit (${kit}) does not have`)
-      if (p.source !== 'core' && !existsSync(join(dir, 'plugins', p.name, '.git'))) throw new Error(`${p.name}: the template has no clone of it (plugins/${p.name}/ with its .git)`)
+      if (p.source === 'core' && !core.includes(p.name))
+        throw new Error(`${p.name}: a core plugin the kit (${kit}) does not have`)
+      if (p.source !== 'core' && !existsSync(join(dir, 'plugins', p.name, '.git')))
+        throw new Error(`${p.name}: the template has no clone of it (plugins/${p.name}/ with its .git)`)
     }
     return manifest
   }
@@ -176,18 +221,31 @@ class App {
    *  added (core) or built and installed (a clone), its store.json as the site's seed. */
   async adopt(from) {
     const manifest = App.template(from, this.kit)
-    for (const p of manifest.plugins.filter(p => p.source !== 'core')) await cp(join(from, 'plugins', p.name), this.clone(p.name), { recursive: true, verbatimSymlinks: true, errorOnExist: true, force: false })
+    for (const p of manifest.plugins.filter(p => p.source !== 'core'))
+      await cp(join(from, 'plugins', p.name), this.clone(p.name), {
+        recursive: true,
+        verbatimSymlinks: true,
+        errorOnExist: true,
+        force: false,
+      })
     for (const p of manifest.plugins) {
       let entry
       if (p.source === 'core') entry = await this.add(p.name, {})
       else {
         const dir = this.clone(p.name)
-        entry = { name: p.name, source: p.source, ref: p.ref ?? git(['rev-parse', '--abbrev-ref', 'HEAD'], dir), commit: git(['rev-parse', 'HEAD'], dir) }
+        entry = {
+          name: p.name,
+          source: p.source,
+          ref: p.ref ?? git(['rev-parse', '--abbrev-ref', 'HEAD'], dir),
+          commit: git(['rev-parse', 'HEAD'], dir),
+        }
         await this.build(entry)
         this.manifest.plugins.push(entry)
       }
       await this.save()
-      console.log(`[tilr] + ${entry.name}${entry.source === 'core' ? ' (core)' : ` ← ${entry.source} @ ${entry.commit.slice(0, 7)} (from the template)`}`)
+      console.log(
+        `[tilr] + ${entry.name}${entry.source === 'core' ? ' (core)' : ` ← ${entry.source} @ ${entry.commit.slice(0, 7)} (from the template)`}`,
+      )
     }
     if (existsSync(join(from, 'store.json'))) {
       await copyFile(join(from, 'store.json'), join(this.site, 'store.json'))
@@ -213,7 +271,9 @@ class App {
       const dir = this.clone(entry.name)
       if (!existsSync(join(dir, '.git'))) throw new Error(`${entry.name}: no clone in plugins/${entry.name}/ to export`)
       let dist = 'dist'
-      try { dist = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')).tilr?.dist ?? 'dist' } catch {}
+      try {
+        dist = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')).tilr?.dist ?? 'dist'
+      } catch {}
       const skip = resolve(dir, dist)
       await cp(dir, join(target, 'plugins', entry.name), {
         recursive: true,
@@ -227,15 +287,24 @@ class App {
     return vendored
   }
 
-  async save() { await put(join(this.dir, MANIFEST), `${JSON.stringify(this.manifest, null, 2)}\n`) }
-  entry(name) { return this.manifest.plugins.find(p => p.name === name) }
-  clone(name) { return join(this.dir, 'plugins', name) }
+  async save() {
+    await put(join(this.dir, MANIFEST), `${JSON.stringify(this.manifest, null, 2)}\n`)
+  }
+  entry(name) {
+    return this.manifest.plugins.find(p => p.name === name)
+  }
+  clone(name) {
+    return join(this.dir, 'plugins', name)
+  }
   kitSite() {
     const site = join(this.kit, 'site')
-    if (!existsSync(join(site, 'index.html'))) throw new Error(`${this.kit} has no built page (site/index.html): run npm run build there`)
+    if (!existsSync(join(site, 'index.html')))
+      throw new Error(`${this.kit} has no built page (site/index.html): run npm run build there`)
     return site
   }
-  coreNames() { return corePlugins(this.kit) }
+  coreNames() {
+    return corePlugins(this.kit)
+  }
 
   async installCore() {
     const changed = await installSite({ site: this.site, root: this.kitSite(), plugins: {}, list: [] })
@@ -247,7 +316,8 @@ class App {
   async writePluginsJson() {
     const names = this.manifest.plugins.map(p => p.name)
     const seed = existsSync(join(this.site, 'store.json')) ? { store: 'store.json' } : {}
-    if (await put(join(this.site, 'plugins.json'), `${JSON.stringify({ plugins: names, ...seed }, null, 2)}\n`)) console.log(`[tilr] plugins.json: ${names.join(' ') || '(empty)'}${seed.store ? ' (seed: store.json)' : ''}`)
+    if (await put(join(this.site, 'plugins.json'), `${JSON.stringify({ plugins: names, ...seed }, null, 2)}\n`))
+      console.log(`[tilr] plugins.json: ${names.join(' ') || '(empty)'}${seed.store ? ' (seed: store.json)' : ''}`)
   }
 
   /** Builds and installs one plugin: a core one is copied from the kit; a clone runs its own
@@ -287,7 +357,12 @@ class App {
       if (existsSync(this.clone(name))) throw new Error(`plugins/${name}/ exists; remove it or tilr plugin add it back`)
       await rename(staging, this.clone(name))
       const dir = this.clone(name)
-      const entry = { name, source: url, ref: ref ?? git(['rev-parse', '--abbrev-ref', 'HEAD'], dir), commit: git(['rev-parse', 'HEAD'], dir) }
+      const entry = {
+        name,
+        source: url,
+        ref: ref ?? git(['rev-parse', '--abbrev-ref', 'HEAD'], dir),
+        commit: git(['rev-parse', 'HEAD'], dir),
+      }
       await this.build(entry)
       this.manifest.plugins.push(entry)
       return entry
@@ -312,15 +387,27 @@ class App {
 
   /** Fetches upstream and merges it into the clone (fast-forward when nothing is local). */
   async update(entry) {
-    if (entry.source === 'core') { await this.build(entry); return 'core' }
+    if (entry.source === 'core') {
+      await this.build(entry)
+      return 'core'
+    }
     const dir = this.clone(entry.name)
     const s = this.status(entry, { fetch: true })
-    if (s.dirty) throw new Error(`${entry.name}: uncommitted changes in plugins/${entry.name}/; commit or stash them first`)
-    if (!s.behind) { console.log(`[tilr] ${entry.name}: up to date${s.ahead ? ` (forked, +${s.ahead})` : ''}`); return 'same' }
+    if (s.dirty)
+      throw new Error(`${entry.name}: uncommitted changes in plugins/${entry.name}/; commit or stash them first`)
+    if (!s.behind) {
+      console.log(`[tilr] ${entry.name}: up to date${s.ahead ? ` (forked, +${s.ahead})` : ''}`)
+      return 'same'
+    }
     const r = spawnSync('git', ['merge', '--quiet', '--no-edit', `origin/${entry.ref}`], { cwd: dir, encoding: 'utf8' })
-    if (r.status !== 0) throw new Error(`${entry.name}: merge of origin/${entry.ref} has conflicts in plugins/${entry.name}/; resolve and commit, then tilr plugin build ${entry.name}\n${(r.stdout + r.stderr).trim()}`)
+    if (r.status !== 0)
+      throw new Error(
+        `${entry.name}: merge of origin/${entry.ref} has conflicts in plugins/${entry.name}/; resolve and commit, then tilr plugin build ${entry.name}\n${(r.stdout + r.stderr).trim()}`,
+      )
     entry.commit = git(['rev-parse', 'HEAD'], dir)
-    console.log(`[tilr] ${entry.name}: merged origin/${entry.ref} (-${s.behind}${s.ahead ? `, forked +${s.ahead}` : ''})`)
+    console.log(
+      `[tilr] ${entry.name}: merged origin/${entry.ref} (-${s.behind}${s.ahead ? `, forked +${s.ahead}` : ''})`,
+    )
     await this.build(entry)
     return 'merged'
   }
@@ -331,17 +418,31 @@ class App {
     const [entry] = this.manifest.plugins.splice(i, 1)
     await this.writePluginsJson()
     await rm(join(this.site, 'plugins', name), { recursive: true, force: true })
-    console.log(`[tilr] ${name}: removed from the app${entry.source !== 'core' && existsSync(this.clone(name)) ? `; plugins/${name}/ is kept` : ''}`)
+    console.log(
+      `[tilr] ${name}: removed from the app${entry.source !== 'core' && existsSync(this.clone(name)) ? `; plugins/${name}/ is kept` : ''}`,
+    )
   }
 
   /** Which entries NAMES pick; all of them when empty. */
   pick(names) {
     if (!names.length) return this.manifest.plugins
-    return names.map(name => this.entry(name) ?? (() => { throw new Error(`${name} is not in the app`) })())
+    return names.map(
+      name =>
+        this.entry(name) ??
+        (() => {
+          throw new Error(`${name} is not in the app`)
+        })(),
+    )
   }
 }
 
-const real = path => { try { return realpathSync(path) } catch { return resolve(path) } }
+const real = path => {
+  try {
+    return realpathSync(path)
+  } catch {
+    return resolve(path)
+  }
+}
 
 function templateReadme(manifest, vendored, store) {
   const name = manifest.name ?? 'app'
@@ -354,8 +455,12 @@ fetched from the network:
   source each was cloned from).
 - \`plugins/<name>/\`: a copy of each cloned plugin with its \`.git\` (its origin and any local
   commits or uncommitted edits), without \`node_modules\` or the build output: ${vendored.length ? vendored.join(', ') : 'none'}.
-${store ? `- \`store.json\`: the app's store (every area, secure ones included): what the page starts with.
-` : ''}
+${
+  store
+    ? `- \`store.json\`: the app's store (every area, secure ones included): what the page starts with.
+`
+    : ''
+}
 Make an app from it:
 
 \`\`\`sh
@@ -377,21 +482,34 @@ async function hostEvent(command, argv) {
   const kindFlag = command === 'open' ? flag(argv, '--kind') : undefined
   const [target, ...args] = argv
   if (!target) throw new Error(command === 'edit' ? 'tilr edit PATH' : 'tilr open [--kind K] TARGET [ARG...]')
-  const kind = command === 'edit' ? 'file' : kindFlag ?? (/^[A-Za-z0-9+.-]+:\/\//.test(target) ? 'url' : 'file')
+  const kind = command === 'edit' ? 'file' : (kindFlag ?? (/^[A-Za-z0-9+.-]+:\/\//.test(target) ? 'url' : 'file'))
   const paneId = process.env.TILR_PANE
   if (!paneId) throw new Error('not inside a tilr pane')
-  const request = { pane_id: paneId, name: 'open', kind, path: kind === 'file' ? resolve(target) : target, args: command === 'edit' ? [] : args }
+  const request = {
+    pane_id: paneId,
+    name: 'open',
+    kind,
+    path: kind === 'file' ? resolve(target) : target,
+    args: command === 'edit' ? [] : args,
+  }
   const reply = await new Promise((done, fail) => {
     const socket = createConnection(process.env.TILR_SOCK)
     let answer = ''
-    socket.setTimeout(10_000, () => { socket.destroy(); fail(new Error('the tilr server did not answer')) })
+    socket.setTimeout(10_000, () => {
+      socket.destroy()
+      fail(new Error('the tilr server did not answer'))
+    })
     socket.on('connect', () => socket.write(JSON.stringify(request) + '\n'))
     socket.on('data', chunk => {
       answer += chunk
       const end = answer.indexOf('\n')
       if (end === -1) return
       socket.end()
-      try { done(JSON.parse(answer.slice(0, end))) } catch { fail(new Error(`bad answer: ${answer.slice(0, end)}`)) }
+      try {
+        done(JSON.parse(answer.slice(0, end)))
+      } catch {
+        fail(new Error(`bad answer: ${answer.slice(0, end)}`))
+      }
     })
     socket.on('error', error => fail(new Error(`cannot reach the tilr server: ${error.message}`)))
   })
@@ -400,6 +518,7 @@ async function hostEvent(command, argv) {
 
 // ---- commands ---------------------------------------------------------------------------------
 
+// eslint-disable-next-line complexity -- the CLI command dispatch: one case per `tilr` subcommand
 async function main(argv) {
   const [group, verb, ...rest] = argv
   if ((group === 'edit' || group === 'open') && process.env.TILR_SOCK) return hostEvent(group, argv.slice(1))
@@ -427,7 +546,9 @@ async function main(argv) {
     const vendored = await app.export(target, { store })
     const keys = store ? Object.values(store).reduce((n, area) => n + Object.keys(area).length, 0) : 0
     console.log(`[tilr] ${target}: template of '${app.manifest.name}'`)
-    console.log(`  plugins: ${app.manifest.plugins.length} (${vendored.length} vendored${vendored.length ? `: ${vendored.join(', ')}` : ''})`)
+    console.log(
+      `  plugins: ${app.manifest.plugins.length} (${vendored.length} vendored${vendored.length ? `: ${vendored.join(', ')}` : ''})`,
+    )
     console.log(`  store: ${store ? `${Object.keys(store).length} areas, ${keys} keys` : 'not exported (--no-store)'}`)
     return
   }
@@ -443,7 +564,15 @@ async function main(argv) {
     const app = App.find(args)
     const [name] = args
     const entry = name && app.entry(name)
-    if (!entry || entry.source === 'core') throw new Error(`tilr dev NAME: a plugin cloned into this app (${app.manifest.plugins.filter(p => p.source !== 'core').map(p => p.name).join(', ') || 'none yet'})`)
+    if (!entry || entry.source === 'core')
+      throw new Error(
+        `tilr dev NAME: a plugin cloned into this app (${
+          app.manifest.plugins
+            .filter(p => p.source !== 'core')
+            .map(p => p.name)
+            .join(', ') || 'none yet'
+        })`,
+      )
     const dir = app.clone(name)
     if (!existsSync(join(dir, 'node_modules'))) npmInstall(dir)
     run('npm', ['run', 'dev:site', '--', '--site', app.site], dir)
@@ -465,7 +594,9 @@ async function main(argv) {
         const entry = await app.add(source, { ref })
         await app.save()
         await app.writePluginsJson()
-        console.log(`[tilr] + ${entry.name}${entry.source === 'core' ? ' (core)' : ` ← ${entry.source} @ ${entry.commit.slice(0, 7)}`}`)
+        console.log(
+          `[tilr] + ${entry.name}${entry.source === 'core' ? ' (core)' : ` ← ${entry.source} @ ${entry.commit.slice(0, 7)}`}`,
+        )
       }
       return
     }
@@ -490,11 +621,14 @@ async function main(argv) {
       for (const entry of app.pick(rest)) {
         const s = app.status(entry, { fetch })
         const marks = [s.ahead ? `+${s.ahead}` : '', s.behind ? `-${s.behind}` : ''].filter(Boolean).join(' ')
-        console.log(`${entry.name.padEnd(12)} ${s.state.padEnd(9)} ${s.head ?? ''} ${marks}${entry.source === 'core' ? '' : `  ${entry.source}`}`)
+        console.log(
+          `${entry.name.padEnd(12)} ${s.state.padEnd(9)} ${s.head ?? ''} ${marks}${entry.source === 'core' ? '' : `  ${entry.source}`}`,
+        )
       }
       return
     }
-    default: usage()
+    default:
+      usage()
   }
 }
 
@@ -505,15 +639,24 @@ async function storeOf(app, window, socket) {
   const hint = `pass --window NAME (tilr ctl apps lists them), or --no-store to export without the store`
   if (!name) throw new Error(`tilr.json has no name to find the app's window by; ${hint}`)
   let apps
-  try { ({ apps } = await control({ cmd: 'apps' }, { socket })) } catch (error) { throw new Error(`cannot read the store of window '${name}': ${error.message}; ${hint}`, { cause: error }) }
+  try {
+    ;({ apps } = await control({ cmd: 'apps' }, { socket }))
+  } catch (error) {
+    throw new Error(`cannot read the store of window '${name}': ${error.message}; ${hint}`, { cause: error })
+  }
   const row = apps.find(a => a.name === name)
-  if (!row) throw new Error(`no window '${name}' in the running Tilr (it has: ${apps.map(a => a.name).join(', ') || 'none'}); ${hint}`)
+  if (!row)
+    throw new Error(
+      `no window '${name}' in the running Tilr (it has: ${apps.map(a => a.name).join(', ') || 'none'}); ${hint}`,
+    )
   if (row.site && real(row.site) !== real(app.site)) {
     const message = `window '${name}' shows ${row.site}, not this app's ${app.site}`
     if (!window) throw new Error(`${message}; ${hint}`)
     console.warn(`[tilr] ${message}: exporting its store as asked`)
   }
-  try { return await call('store', 'dump', [], { socket, app: name }) } catch (error) {
+  try {
+    return await call('store', 'dump', [], { socket, app: name })
+  } catch (error) {
     throw new Error(`cannot read the store of window '${name}': ${error.message}; ${hint}`, { cause: error })
   }
 }
@@ -529,15 +672,24 @@ function ctlFlagsFirst(argv) {
 }
 
 /** `tilr ctl`: the running shell, through its control socket. Results are printed as JSON. */
+// eslint-disable-next-line complexity -- the `tilr ctl` verb dispatch: one case per control verb
 async function ctl(verb, rest) {
   const socket = controlSocket(rest)
   const app = flag(rest, '--app') ?? undefined
   const options = { socket, ...(app ? { app } : {}) }
   const shell = request => control({ ...request, ...(app ? { app } : {}) }, { socket })
   /** A JSON argument, or the bare word as a string. */
-  const json = text => { try { return JSON.parse(text) } catch { return text } }
+  const json = text => {
+    try {
+      return JSON.parse(text)
+    } catch {
+      return text
+    }
+  }
   const print = value => console.log(typeof value === 'string' ? value : JSON.stringify(value, null, 2))
-  const need = (n, what) => { if (rest.length < n) throw new Error(`tilr ctl ${verb}: ${what}`) }
+  const need = (n, what) => {
+    if (rest.length < n) throw new Error(`tilr ctl ${verb}: ${what}`)
+  }
   const number = (text, what) => {
     if (text === undefined || text === null) return undefined
     const n = Number(text)
@@ -545,22 +697,34 @@ async function ctl(verb, rest) {
     return n
   }
   switch (verb) {
-    case 'apps': return print((await shell({ cmd: 'apps' })).apps)
-    case 'native-plugins': return print((await shell({ cmd: 'native-plugins' })).plugins)
+    case 'apps':
+      return print((await shell({ cmd: 'apps' })).apps)
+    case 'native-plugins':
+      return print((await shell({ cmd: 'native-plugins' })).plugins)
     case 'native-call': {
       need(1, 'SERVICE [JSON request]')
       return print(await shell({ cmd: 'native-call', service: rest[0], request: rest[1] ? JSON.parse(rest[1]) : {} }))
     }
-    case 'switch': need(1, 'which app'); return print(await control({ cmd: 'switch', app: rest[0] }, { socket }))
-    case 'reload': return print(await shell({ cmd: 'reload' }))
-    case 'snapshot': { need(1, 'where to write the PNG'); const r = await shell({ cmd: 'snapshot', path: resolve(expand(rest[0])) }); return console.log(`${r.path} (${r.width}×${r.height})`) }
+    case 'switch':
+      need(1, 'which app')
+      return print(await control({ cmd: 'switch', app: rest[0] }, { socket }))
+    case 'reload':
+      return print(await shell({ cmd: 'reload' }))
+    case 'snapshot': {
+      need(1, 'where to write the PNG')
+      const r = await shell({ cmd: 'snapshot', path: resolve(expand(rest[0])) })
+      return console.log(`${r.path} (${r.width}×${r.height})`)
+    }
     case 'console': {
       const clear = has(rest, '--clear')
       const { messages } = await shell({ cmd: 'console', clear })
-      for (const m of messages) console.log(`${new Date(m.time * 1000).toLocaleTimeString('en-GB')} ${m.type.padEnd(9)} ${m.text}`)
+      for (const m of messages)
+        console.log(`${new Date(m.time * 1000).toLocaleTimeString('en-GB')} ${m.type.padEnd(9)} ${m.text}`)
       return
     }
-    case 'eval': need(1, 'the JavaScript'); return print(await evaluate(rest.join(' '), options))
+    case 'eval':
+      need(1, 'the JavaScript')
+      return print(await evaluate(rest.join(' '), options))
     case 'call': {
       need(1, 'SERVICE.METHOD, or an expression')
       const [target, ...args] = rest
@@ -571,26 +735,51 @@ async function ctl(verb, rest) {
       if (dot === -1) return print(await call(target, '', args.map(json), options))
       return print(await call(target.slice(0, dot), target.slice(dot + 1), args.map(json), options))
     }
-    case 'plugins': return print(await plugins(options))
-    case 'toggle': need(1, 'which plugin'); await call('plugins', 'toggle', [rest[0]], options); return print((await plugins(options)).find(r => r.name === rest[0]) ?? `${rest[0]}: not in plugins.json`)
-    case 'reload-plugin': need(1, 'which plugin'); return print(await call('plugins', 'reload', [rest[0]], options))
-    case 'windows': return print(await call('layout', 'list', [], options))
-    case 'types': return print(await call('windows', 'list', [], options))
+    case 'plugins':
+      return print(await plugins(options))
+    case 'toggle':
+      need(1, 'which plugin')
+      await call('plugins', 'toggle', [rest[0]], options)
+      return print((await plugins(options)).find(r => r.name === rest[0]) ?? `${rest[0]}: not in plugins.json`)
+    case 'reload-plugin':
+      need(1, 'which plugin')
+      return print(await call('plugins', 'reload', [rest[0]], options))
+    case 'windows':
+      return print(await call('layout', 'list', [], options))
+    case 'types':
+      return print(await call('windows', 'list', [], options))
     case 'open': {
       need(1, 'which window type (tilr ctl types)')
       const float = has(rest, '--float')
       const [type, config] = rest
-      return print(await call('layout', 'open', [{ type, ...(config !== undefined ? { config: json(config) } : {}), ...(float ? { mode: 'float' } : {}) }], options))
+      return print(
+        await call(
+          'layout',
+          'open',
+          [{ type, ...(config !== undefined ? { config: json(config) } : {}), ...(float ? { mode: 'float' } : {}) }],
+          options,
+        ),
+      )
     }
-    case 'close': need(1, 'which window'); return print(await call('layout', 'close', [rest[0]], options))
-    case 'float': need(1, 'which window'); return print(await call('layout', 'float', rest[1] ? [rest[0], json(rest[1])] : [rest[0]], options))
-    case 'tile': need(1, 'which window'); return print(await call('layout', 'tile', [rest[0]], options))
-    case 'focus': need(1, 'which window'); return print(await call('layout', 'focus', [rest[0]], options))
+    case 'close':
+      need(1, 'which window')
+      return print(await call('layout', 'close', [rest[0]], options))
+    case 'float':
+      need(1, 'which window')
+      return print(await call('layout', 'float', rest[1] ? [rest[0], json(rest[1])] : [rest[0]], options))
+    case 'tile':
+      need(1, 'which window')
+      return print(await call('layout', 'tile', [rest[0]], options))
+    case 'focus':
+      need(1, 'which window')
+      return print(await call('layout', 'focus', [rest[0]], options))
     case 'ui': {
       const json = has(rest, '--json')
       const window = flag(rest, '--window') ?? undefined
       const lines = number(flag(rest, '--lines'), '--lines')
-      return print(await snapshot({ ...(window ? { window: await windowId(window, options) } : {}), json, lines, ...options }))
+      return print(
+        await snapshot({ ...(window ? { window: await windowId(window, options) } : {}), json, lines, ...options }),
+      )
     }
     case 'act': {
       // --wait [REGEX]: after the action, until the window is quiet (or its text matches).
@@ -603,7 +792,10 @@ async function ctl(verb, rest) {
         wait = taken ? { until } : {}
       }
       const lines = number(flag(rest, '--lines'), '--lines')
-      need(2, 'REF ACTION [VALUE] [--wait [REGEX]] [--lines N] (refs from tilr ctl ui; click dblclick fill select check uncheck focus press scroll)')
+      need(
+        2,
+        'REF ACTION [VALUE] [--wait [REGEX]] [--lines N] (refs from tilr ctl ui; click dblclick fill select check uncheck focus press scroll)',
+      )
       const [ref, action, ...value] = rest
       return print(await act(ref, action, value.length ? value.join(' ') : undefined, { wait, lines, ...options }))
     }
@@ -642,14 +834,26 @@ async function ctl(verb, rest) {
         let window
         if (query) {
           const row = resolveWindow(query, await call('layout', 'list', [], options))
-          if (row.type !== 'terminal') throw new Error(`tilr ctl debug bench: window ${row.id} is a ${row.type}, not a terminal`)
+          if (row.type !== 'terminal')
+            throw new Error(`tilr ctl debug bench: window ${row.id} is a ${row.type}, not a terminal`)
           window = row.id
         }
-        const { result, dir } = await runBench({ scenarios, seconds, size, window, socket, app, log: line => console.error(`[bench] ${line}`) })
+        const { result, dir } = await runBench({
+          scenarios,
+          seconds,
+          size,
+          window,
+          socket,
+          app,
+          log: line => console.error(`[bench] ${line}`),
+        })
         const written = await writeBench(result, { out: out ? resolve(expand(out)) : undefined, dir })
         console.log(json ? JSON.stringify(result, null, 2) : `${benchText(result)}\n${written}`)
         if (json) console.error(written)
-        if (result.error) { console.error(`[bench] failed: ${result.error}; the partial result is in ${written}`); process.exitCode = 1 }
+        if (result.error) {
+          console.error(`[bench] failed: ${result.error}; the partial result is in ${written}`)
+          process.exitCode = 1
+        }
         return
       }
       if (action === 'memory') {
@@ -658,11 +862,21 @@ async function ctl(verb, rest) {
         const interval = number(flag(rest, '--interval'), '--interval') ?? 5
         const out = flag(rest, '--out')
         const squeeze = !has(rest, '--no-squeeze')
-        const { result, dir } = await runMemory({ seconds, interval, squeeze, socket, app, log: line => console.error(`[memory] ${line}`) })
+        const { result, dir } = await runMemory({
+          seconds,
+          interval,
+          squeeze,
+          socket,
+          app,
+          log: line => console.error(`[memory] ${line}`),
+        })
         const written = await writeBench(result, { out: out ? resolve(expand(out)) : memoryPath(dir) })
         console.log(json ? JSON.stringify(result, null, 2) : `${memoryText(result)}\n${written}`)
         if (json) console.error(written)
-        if (result.error) { console.error(`[memory] failed: ${result.error}; the partial result is in ${written}`); process.exitCode = 1 }
+        if (result.error) {
+          console.error(`[memory] failed: ${result.error}; the partial result is in ${written}`)
+          process.exitCode = 1
+        }
         return
       }
       // The Mac app's own when it has them, else the page's Performance service.
@@ -689,14 +903,20 @@ async function ctl(verb, rest) {
         if (result.regressed) process.exitCode = 1
         return
       }
-      if (!['status', 'on', 'off'].includes(action)) throw new Error('tilr ctl debug: status | on | off | record [N] [--path P] | metrics [--filter PREFIX] [--json] | bench [all|typing|throughput|idle] [--seconds N] [--size N] [--out FILE] [--window W] [--json] | compare A.json B.json [--threshold PCT] | memory [--seconds N] [--interval S] [--no-squeeze] [--out FILE] [--json] | footprint [--json] | squeeze | inspect')
+      if (!['status', 'on', 'off'].includes(action))
+        throw new Error(
+          'tilr ctl debug: status | on | off | record [N] [--path P] | metrics [--filter PREFIX] [--json] | bench [all|typing|throughput|idle] [--seconds N] [--size N] [--out FILE] [--window W] [--json] | compare A.json B.json [--threshold PCT] | memory [--seconds N] [--interval S] [--no-squeeze] [--out FILE] [--json] | footprint [--json] | squeeze | inspect',
+        )
       return console.log(debugText(await debug(action, {}, { socket })))
     }
-    default: usage()
+    default:
+      usage()
   }
 }
 
-try { await main(process.argv.slice(2)) } catch (error) {
+try {
+  await main(process.argv.slice(2))
+} catch (error) {
   console.error(`[tilr] ${error.message}`)
   process.exitCode = error.exitCode ?? 1
 }

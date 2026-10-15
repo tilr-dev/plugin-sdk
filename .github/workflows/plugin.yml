@@ -1,0 +1,67 @@
+# The reusable CI of a plugin repo (repo standard, §9). A plugin's .github/workflows/ci.yml:
+#
+#   on: { pull_request: {}, push: { branches: [master] } }
+#   permissions: { contents: read }
+#   jobs:
+#     verify:
+#       uses: tilr-dev/plugin-sdk/.github/workflows/plugin.yml@v0
+#
+# npm ci → Playwright WebKit → gitleaks → `npm run verify:full` (tilr-plugin verify --full).
+name: plugin
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: The Node version to run on.
+        type: string
+        default: '24'
+      e2e:
+        description: Install Playwright WebKit for the e2e tests (test:e2e).
+        type: boolean
+        default: true
+      runs-on:
+        description: The runner (ubuntu-latest; macos-latest for a release or when e2e differs from the Mac app).
+        type: string
+        default: ubuntu-latest
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: verify:full
+    runs-on: ${{ inputs.runs-on }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # gitleaks scans the whole history
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+      - name: Install gitleaks
+        shell: bash
+        run: |
+          case "$RUNNER_OS-$RUNNER_ARCH" in
+            Linux-X64) asset=linux_x64; sum="$SHA256_LINUX_X64" ;;
+            macOS-ARM64) asset=darwin_arm64; sum="$SHA256_DARWIN_ARM64" ;;
+            *) echo "no gitleaks binary for $RUNNER_OS-$RUNNER_ARCH" >&2; exit 1 ;;
+          esac
+          curl -sSfL -o "$RUNNER_TEMP/gitleaks.tgz" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_${asset}.tar.gz"
+          echo "${sum}  $RUNNER_TEMP/gitleaks.tgz" | shasum -a 256 -c -
+          tar -xzf "$RUNNER_TEMP/gitleaks.tgz" -C "$RUNNER_TEMP" gitleaks
+          echo "GITLEAKS=$RUNNER_TEMP/gitleaks" >> "$GITHUB_ENV"
+        env:
+          GITLEAKS_VERSION: 8.30.1
+          SHA256_LINUX_X64: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+          SHA256_DARWIN_ARM64: b40ab0ae55c505963e365f271a8d3846efbc170aa17f2607f13df610a9aeb6a5
+      - run: npm ci
+      - if: inputs.e2e
+        run: npx playwright install --with-deps webkit
+      - run: npm run verify:full

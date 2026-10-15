@@ -1,0 +1,4 @@
+# The SDK's git hooks are the preset it ships (presets/lefthook.yml). `npx tilr-plugin` resolves
+# to this package's own bin here, as it does to the installed one in a plugin repo.
+extends:
+  - presets/lefthook.yml

@@ -1,0 +1,20 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "root": true,
+  "extends": ["./presets/biome.json"],
+  "files": {
+    // The preset's list (an extending config replaces it, not merges), plus the template's
+    // biome.json: a plugin repo's root config, which Biome must not load as a nested one here.
+    "includes": [
+      "**",
+      "!**/node_modules",
+      "!**/dist",
+      "!**/site",
+      "!**/api",
+      "!**/test-results",
+      "!**/playwright-report",
+      "!**/package-lock.json",
+      "!!templates/plugin/biome.json"
+    ]
+  }
+}

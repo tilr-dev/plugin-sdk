@@ -12,6 +12,9 @@ export const defaultSite = (env = process.env) => join(configDir(env), 'apps', '
  *  `site/plugins.json` in the published @tilr-dev/plugin (its site/ is the core's build). */
 export function corePlugins(kit) {
   const file = [join(kit, 'static/plugins.json'), join(kit, 'site/plugins.json')].find(path => existsSync(path))
-  if (!file) throw new Error(`${kit}: no static/plugins.json or site/plugins.json (is the core page synced? npm run sync:runtime)`)
+  if (!file)
+    throw new Error(
+      `${kit}: no static/plugins.json or site/plugins.json (is the core page synced? npm run sync:runtime)`,
+    )
   return JSON.parse(readFileSync(file, 'utf8')).plugins
 }

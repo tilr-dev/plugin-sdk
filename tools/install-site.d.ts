@@ -7,7 +7,7 @@ export declare function configSite(file?: string): string | null
 /** --site DIR, $TILR_SITE, the app's config, <config>/apps/default; in that order. */
 export declare function siteDir(argv?: string[], env?: Record<string, string | undefined>): string
 /** package.json's `tilr.name`, or the package name without scope and `plugin-` prefix. */
-export declare function pluginName(pkg: { name: string, tilr?: { name?: string } }): string
+export declare function pluginName(pkg: { name: string; tilr?: { name?: string } }): string
 export interface InstallOptions {
   site: string
   /** Copied to the site's top level, except plugins/ and plugins.json. Nothing there is removed. */

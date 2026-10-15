@@ -15,13 +15,13 @@ const SITE = new URL('../site/', import.meta.url)
 
 /** Specifier → path under site/, as static/index.html's import map has it. */
 export const SITE_FILES = {
-  'cordis': 'vendor/cordis.js',
+  cordis: 'vendor/cordis.js',
   '@deepseek-ai/cosmokit': 'vendor/cosmokit.js',
-  'tilr': 'tilr.js',
+  tilr: 'tilr.js',
   'tilr/react': 'tilr/react.js',
   'tilr/ui': 'tilr/ui.js',
   'tilr/native': 'tilr/native.js',
-  'react': 'vendor/react.js',
+  react: 'vendor/react.js',
   'react/jsx-runtime': 'vendor/react-jsx-runtime.js',
   'react-dom': 'vendor/react-dom.js',
   'react-dom/client': 'vendor/react-dom.js',
@@ -29,8 +29,10 @@ export const SITE_FILES = {
 
 const missing = [...new Set(Object.values(SITE_FILES))].filter(path => !existsSync(new URL(path, SITE)))
 if (missing.length) {
-  throw new Error(`@tilr-dev/plugin/test/node: ${fileURLToPath(SITE)} has no ${missing.join(', ')}: `
-    + `the SDK's site/ is not built. Run \`npm run sync:runtime\` in @tilr-dev/plugin (${fileURLToPath(new URL('..', SITE))}).`)
+  throw new Error(
+    `@tilr-dev/plugin/test/node: ${fileURLToPath(SITE)} has no ${missing.join(', ')}: ` +
+      `the SDK's site/ is not built. Run \`npm run sync:runtime\` in @tilr-dev/plugin (${fileURLToPath(new URL('..', SITE))}).`,
+  )
 }
 
 registerHooks({

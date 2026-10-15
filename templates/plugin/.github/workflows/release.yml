@@ -1,0 +1,57 @@
+# Releases of this plugin (repo standard, §5): release-please keeps a release PR open from the
+# Conventional Commits on master; merging it tags vX.Y.Z and creates the GitHub release. Then
+# the plugin is checked again, built, and dist/ is attached to the release (what a Tilr app's
+# plugin manager installs). A plugin with an src/api.ts for other plugins may also publish to
+# npm: add a job like the SDK's (id-token: write, npm publish --provenance).
+name: release
+
+on:
+  push:
+    branches: [master]
+
+permissions: {}
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - id: release
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  verify:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    permissions:
+      contents: read
+    uses: tilr-dev/plugin-sdk/.github/workflows/plugin.yml@v0
+
+  dist:
+    needs: [release-please, verify]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # upload the release asset
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Attach dist/ to the release
+        run: tar -czf dist.tgz dist && gh release upload "$TAG" dist.tgz --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.release-please.outputs.tag_name }}

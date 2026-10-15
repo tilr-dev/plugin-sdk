@@ -18,8 +18,13 @@ const root = mkdtempSync(join(tmpdir(), 'tilr-node-resolve-'))
 after(() => rmSync(root, { recursive: true, force: true }))
 
 mkdirSync(join(root, 'src'))
-writeFileSync(join(root, 'package.json'), JSON.stringify({ name: '@tilr-dev/plugin-fix', version: '1.2.3', type: 'module' }))
-writeFileSync(join(root, 'src/index.ts'), `import { definePlugin, optional, onLayout } from 'tilr'
+writeFileSync(
+  join(root, 'package.json'),
+  JSON.stringify({ name: '@tilr-dev/plugin-fix', version: '1.2.3', type: 'module' }),
+)
+writeFileSync(
+  join(root, 'src/index.ts'),
+  `import { definePlugin, optional, onLayout } from 'tilr'
 import { element, frame } from 'tilr/ui'
 export default definePlugin({
   name: 'fix',
@@ -30,7 +35,8 @@ export default definePlugin({
   },
 })
 export const helpers = { optional, onLayout, element, frame }
-`)
+`,
+)
 const built = buildPlugin({ root, argv: [] })
 const INDEX = pathToFileURL(join(root, 'dist/index.js')).href
 
@@ -55,9 +61,14 @@ test('under the hook, dist/index.js imports the real SDK modules', async () => {
   const r = load(['--import', HOOK])
   assert.equal(r.status, 0, r.stderr)
   assert.deepEqual(JSON.parse(r.stdout), {
-    name: 'fix', inject: ['ui'], apply: 'function',
+    name: 'fix',
+    inject: ['ui'],
+    apply: 'function',
     helpers: { optional: 'function', onLayout: 'function', element: 'function', frame: 'function' },
-    stamp: { version: '1.2.3', api: '^' + JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version },
+    stamp: {
+      version: '1.2.3',
+      api: '^' + JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version,
+    },
   })
 })
 
@@ -72,8 +83,18 @@ test('without the hook, the same import fails on the bare name', async () => {
 test('the hook maps every name of the import map, to the files site/index.html names', () => {
   const html = readFileSync(fileURLToPath(new URL('../site/index.html', import.meta.url)), 'utf8')
   const { imports } = JSON.parse(/<script type="importmap">([\s\S]*?)<\/script>/.exec(html)[1])
-  const r = spawnSync(process.execPath, ['--input-type=module', '-e',
-    `import { SITE_FILES } from ${JSON.stringify(HOOK)}; console.log(JSON.stringify(SITE_FILES))`], { encoding: 'utf8' })
+  const r = spawnSync(
+    process.execPath,
+    [
+      '--input-type=module',
+      '-e',
+      `import { SITE_FILES } from ${JSON.stringify(HOOK)}; console.log(JSON.stringify(SITE_FILES))`,
+    ],
+    { encoding: 'utf8' },
+  )
   assert.equal(r.status, 0, r.stderr)
-  assert.deepEqual(JSON.parse(r.stdout), Object.fromEntries(Object.entries(imports).map(([k, v]) => [k, v.replace(/^\.\//, '')])))
+  assert.deepEqual(
+    JSON.parse(r.stdout),
+    Object.fromEntries(Object.entries(imports).map(([k, v]) => [k, v.replace(/^\.\//, '')])),
+  )
 })

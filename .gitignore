@@ -6,3 +6,10 @@ site/
 test-results/
 playwright-report/
 *.tgz
+# Never committed (public repo): local env, keys, machine-local config.
+.env*
+!.env.example
+*.local.json
+*.pem
+*.key
+*.p12

@@ -24,7 +24,10 @@ async function playwright() {
     module = await import('@playwright/test')
   }
   // The CommonJS entry (what require.resolve finds) has its names on the default export only.
-  return { defineConfig: module.defineConfig ?? module.default.defineConfig, devices: module.devices ?? module.default.devices }
+  return {
+    defineConfig: module.defineConfig ?? module.default.defineConfig,
+    devices: module.devices ?? module.default.devices,
+  }
 }
 
 const { defineConfig, devices } = await playwright()

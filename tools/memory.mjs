@@ -8,7 +8,7 @@
 // garbage, memory that stays from one squeeze to the next is retained. The analysis is pure over
 // the probes (tools/memory.test.mjs); runMemory() is the driver.
 import { debug, debugNative, evaluate } from './control.mjs'
-import { BenchError, benchPath } from './bench.mjs'
+import { BenchError, benchPath, table } from './bench.mjs'
 
 const MIB = 1048576
 /** Slope (MiB/min) at or above which a series grows. */
@@ -22,24 +22,35 @@ export const RETAINED_SHARE = 0.05
 /** The categories of footprint(). */
 export const CATEGORIES = ['malloc', 'graphics', 'js', 'jit', 'other']
 
-const round = (n, digits = 2) => n === null || n === undefined || !Number.isFinite(n) ? null : Math.round(n * 10 ** digits) / 10 ** digits
+const round = (n, digits = 2) =>
+  n === null || n === undefined || !Number.isFinite(n) ? null : Math.round(n * 10 ** digits) / 10 ** digits
 
 /** Least-squares slope of `points` ([ms, bytes]) in MiB per minute; null under 2 points or 0 time. */
 export function slope(points) {
   const n = points.length
   if (n < 2) return null
-  let mx = 0, my = 0
-  for (const [x, y] of points) { mx += x; my += y }
-  mx /= n; my /= n
-  let num = 0, den = 0
-  for (const [x, y] of points) { num += (x - mx) * (y - my); den += (x - mx) ** 2 }
-  return den ? num / den * 60_000 / MIB : null
+  let mx = 0,
+    my = 0
+  for (const [x, y] of points) {
+    mx += x
+    my += y
+  }
+  mx /= n
+  my /= n
+  let num = 0,
+    den = 0
+  for (const [x, y] of points) {
+    num += (x - mx) * (y - my)
+    den += (x - mx) ** 2
+  }
+  return den ? ((num / den) * 60_000) / MIB : null
 }
 
 /** The largest drop after a peak, as a share of that peak (0…1): max over i of
  *  (max(v[0..i]) − v[i]) / max(v[0..i]). */
 export function maxDrawdown(values) {
-  let peak = -Infinity, worst = 0
+  let peak = -Infinity,
+    worst = 0
   for (const v of values) {
     if (v > peak) peak = v
     else if (peak > 0) worst = Math.max(worst, (peak - v) / peak)
@@ -55,14 +66,27 @@ export function maxDrawdown(values) {
 export function drawdowns(values, threshold = DRAWDOWN) {
   const out = []
   if (!values.length) return out
-  let falling = false, high = values[0], low = values[0], at = 0
+  let falling = false,
+    high = values[0],
+    low = values[0],
+    at = 0
   for (let i = 1; i < values.length; i++) {
     const v = values[i]
     if (!falling) {
       if (v > high) high = v
-      else if (high > 0 && (high - v) / high >= threshold) { falling = true; low = v; at = i }
-    } else if (v < low) { low = v; at = i }
-    else if (v - low >= high * threshold / 2) { out.push({ depth: (high - low) / high, low: at }); falling = false; high = v }
+      else if (high > 0 && (high - v) / high >= threshold) {
+        falling = true
+        low = v
+        at = i
+      }
+    } else if (v < low) {
+      low = v
+      at = i
+    } else if (v - low >= (high * threshold) / 2) {
+      out.push({ depth: (high - low) / high, low: at })
+      falling = false
+      high = v
+    }
   }
   if (falling) out.push({ depth: (high - low) / high, low: at })
   return out
@@ -91,22 +115,32 @@ export function judge(points) {
   const downs = drawdowns(values)
   const floor = downs.length >= 2 ? slope(downs.map(d => points[d.low])) : null
   const out = {
-    first: values[0] ?? null, last: values.at(-1) ?? null,
-    min: values.length ? Math.min(...values) : null, max: values.length ? Math.max(...values) : null,
-    slope: round(slope(points)), floorSlope: round(floor), maxDrawdown: round(maxDrawdown(values) * 100, 1), drawdowns: downs.length,
-    thirds: { first: null, last: null }, verdict: 'too-short',
+    first: values[0] ?? null,
+    last: values.at(-1) ?? null,
+    min: values.length ? Math.min(...values) : null,
+    max: values.length ? Math.max(...values) : null,
+    slope: round(slope(points)),
+    floorSlope: round(floor),
+    maxDrawdown: round(maxDrawdown(values) * 100, 1),
+    drawdowns: downs.length,
+    thirds: { first: null, last: null },
+    verdict: 'too-short',
   }
   if (points.length < 6) return out
   const third = Math.floor(points.length / 3)
-  const early = slope(points.slice(0, third + 1)), late = slope(points.slice(points.length - third - 1))
+  const early = slope(points.slice(0, third + 1)),
+    late = slope(points.slice(points.length - third - 1))
   out.thirds = { first: round(early), last: round(late) }
-  const trend = floor ?? slope(points)
-  if (early > 0 && late < early * 0.1 && downs.length >= 1) out.verdict = 'plateau'
-  else if (downs.length >= 2 && trend < GROWING) out.verdict = 'gc-sawtooth'
-  else if (trend >= GROWING && downs.length === 0) out.verdict = 'growing'
-  else if (trend >= GROWING) out.verdict = 'growing-sawtooth'
-  else out.verdict = 'flat'
+  out.verdict = verdict({ early, late, drawdowns: downs.length, trend: floor ?? slope(points) })
   return out
+}
+
+/** judge()'s verdict from the slopes of the first and last thirds, the drawdowns and the trend. */
+function verdict({ early, late, drawdowns, trend }) {
+  if (early > 0 && late < early * 0.1 && drawdowns >= 1) return 'plateau'
+  if (drawdowns >= 2 && trend < GROWING) return 'gc-sawtooth'
+  if (trend >= GROWING) return drawdowns === 0 ? 'growing' : 'growing-sawtooth'
+  return 'flat'
 }
 
 /** first / last / Δ of a count over the probes. */
@@ -138,8 +172,16 @@ export function categoryReport(footprints = []) {
   for (const f of footprints) {
     for (const p of f.processes ?? []) {
       let row = byPid.get(p.pid)
-      if (!row) { row = { role: p.role, pid: p.pid, scope: p.scope, peak: null, afterSqueeze: null }; byPid.set(p.pid, row) }
-      const reading = { at: f.at, footprint: p.footprint, reclaimable: p.reclaimable ?? 0, categories: Object.fromEntries(CATEGORIES.map(c => [c, p.categories?.[c] ?? 0])) }
+      if (!row) {
+        row = { role: p.role, pid: p.pid, scope: p.scope, peak: null, afterSqueeze: null }
+        byPid.set(p.pid, row)
+      }
+      const reading = {
+        at: f.at,
+        footprint: p.footprint,
+        reclaimable: p.reclaimable ?? 0,
+        categories: Object.fromEntries(CATEGORIES.map(c => [c, p.categories?.[c] ?? 0])),
+      }
       if (f.phase === 'squeeze') row.afterSqueeze = reading
       else if (!row.peak || p.footprint > row.peak.footprint) row.peak = reading
     }
@@ -147,8 +189,16 @@ export function categoryReport(footprints = []) {
   return [...byPid.values()].map(row => {
     const peak = row.peak ?? row.afterSqueeze
     const after = row.afterSqueeze
-    const delta = peak && after && row.peak ? Object.fromEntries(['footprint', ...CATEGORIES].map(k => [k, (k === 'footprint' ? after.footprint - peak.footprint : after.categories[k] - peak.categories[k])])) : null
-    const dominant = CATEGORIES.reduce((a, b) => peak.categories[b] > peak.categories[a] ? b : a)
+    const delta =
+      peak && after && row.peak
+        ? Object.fromEntries(
+            ['footprint', ...CATEGORIES].map(k => [
+              k,
+              k === 'footprint' ? after.footprint - peak.footprint : after.categories[k] - peak.categories[k],
+            ]),
+          )
+        : null
+    const dominant = CATEGORIES.reduce((a, b) => (peak.categories[b] > peak.categories[a] ? b : a))
     return { ...row, peak, delta, dominant }
   })
 }
@@ -175,7 +225,10 @@ export function analyzeMemory(probes, { footprints = [] } = {}) {
     for (const proc of p.processes ?? []) {
       const key = `${proc.role} ${proc.pid}`
       let row = byProcess.get(key)
-      if (!row) { row = { role: proc.role, pid: proc.pid, scope: proc.scope, points: [], squeezed: [] }; byProcess.set(key, row) }
+      if (!row) {
+        row = { role: proc.role, pid: proc.pid, scope: proc.scope, points: [], squeezed: [] }
+        byProcess.set(key, row)
+      }
       row.scope = proc.scope
       ;(p.phase === 'squeeze' ? row.squeezed : row.points).push([p.at, proc.memory])
     }
@@ -188,21 +241,41 @@ export function analyzeMemory(probes, { footprints = [] } = {}) {
     const two = squeezed.length >= 2
     const minutes = two ? (squeezed.at(-1)[0] - squeezed[0][0]) / 60_000 : 0
     const retained = two ? afterSqueeze.last - afterSqueeze.first : null
-    const squeeze = { peak, afterSqueeze, retained, retainedSlope: two && minutes > 0 ? round(retained / MIB / minutes) : null, reclaimed: afterSqueeze && peak !== null ? peak - afterSqueeze.last : null }
-    return { ...row, samples: points.length, ...judged, ...squeeze, trend: judged.verdict, verdict: squeezeVerdict(squeeze, judged.verdict) }
+    const squeeze = {
+      peak,
+      afterSqueeze,
+      retained,
+      retainedSlope: two && minutes > 0 ? round(retained / MIB / minutes) : null,
+      reclaimed: afterSqueeze && peak !== null ? peak - afterSqueeze.last : null,
+    }
+    return {
+      ...row,
+      samples: points.length,
+      ...judged,
+      ...squeeze,
+      trend: judged.verdict,
+      verdict: squeezeVerdict(squeeze, judged.verdict),
+    }
   })
   const categories = categoryReport(footprints)
   const counts = {}
   for (const key of ['listeners', 'domNodes', 'windows', 'reactRoots', 'canvases', 'images']) {
-    counts[key] = counter(probes.map(p => key === 'listeners' ? p.listeners?.total : p[key]))
+    counts[key] = counter(probes.map(p => (key === 'listeners' ? p.listeners?.total : p[key])))
   }
-  const firstPlugins = probes[0]?.listeners?.byPlugin ?? {}, lastPlugins = probes.at(-1)?.listeners?.byPlugin ?? {}
+  const firstPlugins = probes[0]?.listeners?.byPlugin ?? {},
+    lastPlugins = probes.at(-1)?.listeners?.byPlugin ?? {}
   const listeners = [...new Set([...Object.keys(firstPlugins), ...Object.keys(lastPlugins)])]
     .map(plugin => ({ plugin, first: firstPlugins[plugin] ?? 0, last: lastPlugins[plugin] ?? 0 }))
     .map(r => ({ ...r, delta: r.last - r.first }))
     .filter(r => r.delta !== 0)
     .sort((a, b) => b.delta - a.delta || a.plugin.localeCompare(b.plugin))
-  return { processes, counts, listeners, categories, hints: [...hints(processes, counts, listeners), ...categoryHints(categories)] }
+  return {
+    processes,
+    counts,
+    listeners,
+    categories,
+    hints: [...hints(processes, counts, listeners), ...categoryHints(categories)],
+  }
 }
 
 /** Hints from the categories: graphics dominating (compositing), malloc a squeeze gives back. */
@@ -210,13 +283,26 @@ function categoryHints(categories) {
   const out = []
   const mib = n => (n / MIB).toFixed(1)
   for (const c of categories) {
-    const peak = c.peak, after = c.afterSqueeze
+    const peak = c.peak,
+      after = c.afterSqueeze
     if (c.dominant === 'graphics' && peak.categories.graphics >= peak.footprint * 0.3) {
-      const kept = after && c.delta ? `; after the squeeze ${mib(after.categories.graphics)} MiB (${c.delta.graphics >= 0 ? '+' : ''}${mib(c.delta.graphics)}): a squeeze does not free it` : ''
-      out.push(`${c.role} ${c.pid}: graphics is the largest part, ${mib(peak.categories.graphics)} of ${mib(peak.footprint)} MiB${kept}: compositing layers/tiles: open Safari Web Inspector → Layers; \`tilr ctl debug inspect\` (look for many or large composited layers: will-change, transforms, fixed or scrolling elements, big canvases)`)
+      const kept =
+        after && c.delta
+          ? `; after the squeeze ${mib(after.categories.graphics)} MiB (${c.delta.graphics >= 0 ? '+' : ''}${mib(c.delta.graphics)}): a squeeze does not free it`
+          : ''
+      out.push(
+        `${c.role} ${c.pid}: graphics is the largest part, ${mib(peak.categories.graphics)} of ${mib(peak.footprint)} MiB${kept}: compositing layers/tiles: open Safari Web Inspector → Layers; \`tilr ctl debug inspect\` (look for many or large composited layers: will-change, transforms, fixed or scrolling elements, big canvases)`,
+      )
     }
-    if (c.dominant === 'malloc' && after && c.delta && -c.delta.malloc >= Math.max(RETAINED_BYTES, peak.categories.malloc * 0.25)) {
-      out.push(`${c.role} ${c.pid}: malloc ${mib(peak.categories.malloc)} → ${mib(after.categories.malloc)} MiB after the squeeze: uncollected garbage, not a leak (WebKit returns it only under memory pressure)`)
+    if (
+      c.dominant === 'malloc' &&
+      after &&
+      c.delta &&
+      -c.delta.malloc >= Math.max(RETAINED_BYTES, peak.categories.malloc * 0.25)
+    ) {
+      out.push(
+        `${c.role} ${c.pid}: malloc ${mib(peak.categories.malloc)} → ${mib(after.categories.malloc)} MiB after the squeeze: uncollected garbage, not a leak (WebKit returns it only under memory pressure)`,
+      )
     }
   }
   return out
@@ -229,27 +315,45 @@ const domGrew = c => c.first !== null && c.delta !== null && c.delta >= 50 && c.
 function hints(processes, counts, listeners) {
   const out = []
   const grown = listeners.filter(r => r.delta > 0)
-  if (grown.length) out.push(`listeners grew (${counts.listeners.first} → ${counts.listeners.last}): ${grown.slice(0, 3).map(r => `${r.plugin} +${r.delta}`).join(', ')}: a plugin subscribes (ctx.on) per window or per update and does not dispose; check its effects`)
-  if (domGrew(counts.domNodes) && !counts.windows.delta) out.push(`DOM leak: ${counts.domNodes.delta} more DOM nodes (${counts.domNodes.first} → ${counts.domNodes.last}) with the same number of windows: elements kept or appended and never removed (closed windows' content, a growing list, overlays)`)
-  if (counts.reactRoots.delta > 0 && !(counts.windows.delta > 0)) out.push(`React roots grew by ${counts.reactRoots.delta} with no more windows: a createRoot() without unmount()`)
-  const quiet = !(counts.listeners.delta > 0) && !domGrew(counts.domNodes) && !counts.windows.delta && !(counts.reactRoots.delta > 0)
+  if (grown.length)
+    out.push(
+      `listeners grew (${counts.listeners.first} → ${counts.listeners.last}): ${grown
+        .slice(0, 3)
+        .map(r => `${r.plugin} +${r.delta}`)
+        .join(', ')}: a plugin subscribes (ctx.on) per window or per update and does not dispose; check its effects`,
+    )
+  if (domGrew(counts.domNodes) && !counts.windows.delta)
+    out.push(
+      `DOM leak: ${counts.domNodes.delta} more DOM nodes (${counts.domNodes.first} → ${counts.domNodes.last}) with the same number of windows: elements kept or appended and never removed (closed windows' content, a growing list, overlays)`,
+    )
+  if (counts.reactRoots.delta > 0 && !(counts.windows.delta > 0))
+    out.push(`React roots grew by ${counts.reactRoots.delta} with no more windows: a createRoot() without unmount()`)
+  const quiet =
+    !(counts.listeners.delta > 0) &&
+    !domGrew(counts.domNodes) &&
+    !counts.windows.delta &&
+    !(counts.reactRoots.delta > 0)
   for (const p of processes.filter(leaking)) {
-    if (p.role === 'WebContent' && quiet) out.push(`WebContent ${p.pid} grows (${p.slope} MiB/min) while listeners, DOM nodes, windows and React roots stay flat: the JS heap (closures, caches, arrays kept by a plugin). Take two heap snapshots a minute apart in Safari Web Inspector → Timelines → JavaScript Allocations and compare them; \`footprint ${p.pid}\` shows the process' memory by kind`)
-    else if (/pane|server/i.test(p.role)) out.push(`${p.role} ${p.pid} grows (${p.slope} MiB/min): scrollback, normal up to the server's scrollback limit`)
-    else if (p.role === 'Tilr') out.push(`Tilr ${p.pid} (the native app) grows (${p.slope} MiB/min): native views or the shell itself; \`footprint ${p.pid}\``)
+    if (p.role === 'WebContent' && quiet)
+      out.push(
+        `WebContent ${p.pid} grows (${p.slope} MiB/min) while listeners, DOM nodes, windows and React roots stay flat: the JS heap (closures, caches, arrays kept by a plugin). Take two heap snapshots a minute apart in Safari Web Inspector → Timelines → JavaScript Allocations and compare them; \`footprint ${p.pid}\` shows the process' memory by kind`,
+      )
+    else if (/pane|server/i.test(p.role))
+      out.push(`${p.role} ${p.pid} grows (${p.slope} MiB/min): scrollback, normal up to the server's scrollback limit`)
+    else if (p.role === 'Tilr')
+      out.push(
+        `Tilr ${p.pid} (the native app) grows (${p.slope} MiB/min): native views or the shell itself; \`footprint ${p.pid}\``,
+      )
   }
   return out
 }
 
 /** The probes' JSON and analysis as text: a process table, the counts, a verdict line per
  *  process and the hints. */
-const mib = n => n === null || n === undefined ? '—' : (n / MIB).toFixed(1)
-const signed = (n, f = String) => n === null || n === undefined ? '—' : `${n > 0 ? '+' : ''}${f(n)}`
+const mib = n => (n === null || n === undefined ? '—' : (n / MIB).toFixed(1))
+const signed = (n, f = String) => (n === null || n === undefined ? '—' : `${n > 0 ? '+' : ''}${f(n)}`)
 /** Rows as aligned columns: the first `left` padded at the end, the rest at the start. */
-const grid = (rows, left = 2) => {
-  const widths = rows[0].map((_, i) => Math.max(...rows.map(r => r[i].length)))
-  return rows.map(r => r.map((c, i) => i < left ? c.padEnd(widths[i]) : c.padStart(widths[i])).join('  ').trimEnd()).join('\n')
-}
+const grid = (rows, left = 2) => table(rows, i => i >= left)
 const NA = 'n/a (update the Mac app)'
 /** What a squeeze may reach beyond Tilr. */
 const SYSTEM_WIDE = 'a squeeze may be system-wide (a low-memory signal): other apps can release memory too'
@@ -260,7 +364,13 @@ export function categoriesText(categories) {
   if (!categories.length) return 'no footprint'
   const rows = [['footprint MiB', 'pid', 'when', 'total', ...CATEGORIES]]
   for (const c of categories) {
-    const line = (name, r) => [name === 'peak' ? `${c.role} / ${c.scope}` : '', name === 'peak' ? String(c.pid) : '', name, mib(r.footprint), ...CATEGORIES.map(k => mib(r.categories[k]))]
+    const line = (name, r) => [
+      name === 'peak' ? `${c.role} / ${c.scope}` : '',
+      name === 'peak' ? String(c.pid) : '',
+      name,
+      mib(r.footprint),
+      ...CATEGORIES.map(k => mib(r.categories[k])),
+    ]
     rows.push(line(c.afterSqueeze && c.peak === c.afterSqueeze ? 'after squeeze' : 'peak', c.peak))
     if (c.afterSqueeze && c.delta) {
       rows.push(line('after squeeze', c.afterSqueeze))
@@ -272,27 +382,100 @@ export function categoriesText(categories) {
 
 /** The probes' JSON and analysis as text: a process table, the squeezes and what stayed, the
  *  categories, the counts, a verdict line per process and the hints. */
-export function memoryText({ seconds, interval, probes = [], footprints = [], squeezes = [], support, squeeze, report, error }) {
+// eslint-disable-next-line complexity -- a report formatter: one optional section per kind of probe data the platform may not provide
+export function memoryText({
+  seconds,
+  interval,
+  probes = [],
+  footprints = [],
+  squeezes = [],
+  support,
+  squeeze,
+  report,
+  error,
+}) {
   const lines = [`${probes.filter(p => p.phase !== 'squeeze').length} probes, every ${interval} s over ${seconds} s`]
-  const cell = v => v === null || v === undefined ? '—' : String(v)
+  const cell = v => (v === null || v === undefined ? '—' : String(v))
   if (report?.processes.length) {
-    lines.push('', grid([['process', 'pid', 'first MiB', 'last', 'min', 'max', 'MiB/min', 'floor MiB/min', 'max drawdown %', 'drawdowns', 'verdict'],
-      ...report.processes.map(p => [`${p.role} / ${p.scope}`, String(p.pid), mib(p.first), mib(p.last), mib(p.min), mib(p.max), cell(p.slope), cell(p.floorSlope), cell(p.maxDrawdown), String(p.drawdowns), p.verdict])]))
+    lines.push(
+      '',
+      grid([
+        [
+          'process',
+          'pid',
+          'first MiB',
+          'last',
+          'min',
+          'max',
+          'MiB/min',
+          'floor MiB/min',
+          'max drawdown %',
+          'drawdowns',
+          'verdict',
+        ],
+        ...report.processes.map(p => [
+          `${p.role} / ${p.scope}`,
+          String(p.pid),
+          mib(p.first),
+          mib(p.last),
+          mib(p.min),
+          mib(p.max),
+          cell(p.slope),
+          cell(p.floorSlope),
+          cell(p.maxDrawdown),
+          String(p.drawdowns),
+          p.verdict,
+        ]),
+      ]),
+    )
   } else lines.push('', 'no process samples (the native sampler answers only in the Mac app)')
   if (squeezes.length) {
     lines.push('')
-    squeezes.forEach((s, i) => lines.push(`squeeze ${i + 1} at ${Math.round(s.at / 1000)} s (${s.method || 'native'}): WebContent ${mib(s.before)} → ${mib(s.after)} MiB`))
+    squeezes.forEach((s, i) =>
+      lines.push(
+        `squeeze ${i + 1} at ${Math.round(s.at / 1000)} s (${s.method || 'native'}): WebContent ${mib(s.before)} → ${mib(s.after)} MiB`,
+      ),
+    )
     lines.push(`(${SYSTEM_WIDE})`)
     if (report?.processes.some(p => p.afterSqueeze)) {
-      lines.push('', grid([['after squeeze', 'pid', 'peak MiB', 'first', 'last', 'retained', 'retained MiB/min', 'reclaimed', 'trend'],
-        ...report.processes.filter(p => p.afterSqueeze).map(p => [`${p.role} / ${p.scope}`, String(p.pid), mib(p.peak), mib(p.afterSqueeze.first), mib(p.afterSqueeze.last), signed(p.retained, mib), cell(p.retainedSlope), mib(p.reclaimed), p.trend])]))
+      lines.push(
+        '',
+        grid([
+          ['after squeeze', 'pid', 'peak MiB', 'first', 'last', 'retained', 'retained MiB/min', 'reclaimed', 'trend'],
+          ...report.processes
+            .filter(p => p.afterSqueeze)
+            .map(p => [
+              `${p.role} / ${p.scope}`,
+              String(p.pid),
+              mib(p.peak),
+              mib(p.afterSqueeze.first),
+              mib(p.afterSqueeze.last),
+              signed(p.retained, mib),
+              cell(p.retainedSlope),
+              mib(p.reclaimed),
+              p.trend,
+            ]),
+        ]),
+      )
     }
   } else if (squeeze === false) lines.push('', 'squeeze: off (--no-squeeze)')
   else if (support?.squeeze === false) lines.push('', `squeeze: ${NA}`)
   if (footprints.length && report?.categories?.length) lines.push('', categoriesText(report.categories))
   else if (support?.footprint === false) lines.push('', `categories: ${NA}`)
   if (report) {
-    lines.push('', grid([['count', '', 'first', 'last', 'Δ'], ...Object.entries(report.counts).map(([k, c]) => [k, '', cell(c.first), cell(c.last), c.delta === null ? '—' : `${c.delta > 0 ? '+' : ''}${c.delta}`])]))
+    lines.push(
+      '',
+      grid([
+        ['count', '', 'first', 'last', 'Δ'],
+        ...Object.entries(report.counts).map(([k, c]) => [
+          k,
+          '',
+          cell(c.first),
+          cell(c.last),
+          c.delta === null ? '—' : `${c.delta > 0 ? '+' : ''}${c.delta}`,
+        ]),
+      ]),
+    )
     lines.push('')
     for (const p of report.processes) lines.push(`${p.role} ${p.pid}: ${p.verdict}: ${VERDICT[p.verdict]}`)
     for (const h of report.hints) lines.push(`hint: ${h}`)
@@ -317,11 +500,16 @@ return p.inspector().then(shown => shown ? { shown } : { shown, reason: 'the Mac
 /** A footprint reply by its shape (`{ processes: [...] }`), else null (undefined, an older app). */
 export function footprintOf(value) {
   if (!value || typeof value !== 'object' || !Array.isArray(value.processes)) return null
-  return { processes: value.processes.filter(p => p && typeof p.footprint === 'number'), took: value.took ?? null, ...(typeof value.error === 'string' ? { error: value.error } : {}) }
+  return {
+    processes: value.processes.filter(p => p && typeof p.footprint === 'number'),
+    took: value.took ?? null,
+    ...(typeof value.error === 'string' ? { error: value.error } : {}),
+  }
 }
 /** A squeeze reply by its shape (`{ method, before, after }`), else null. */
 export function squeezeOf(value) {
-  if (!value || typeof value !== 'object' || typeof value.before !== 'number' || typeof value.after !== 'number') return null
+  if (!value || typeof value !== 'object' || typeof value.before !== 'number' || typeof value.after !== 'number')
+    return null
   return { method: typeof value.method === 'string' ? value.method : '', before: value.before, after: value.after }
 }
 
@@ -342,8 +530,16 @@ export async function debugInspect(options = {}) {
 /** A footprint reply as a table (MiB): per process its total, categories and reclaimable. */
 export function footprintText(reply) {
   if (!reply) return `footprint: ${NA}`
-  const rows = [['process', 'pid', 'footprint MiB', ...CATEGORIES, 'reclaimable'],
-    ...reply.processes.map(p => [`${p.role} / ${p.scope}`, String(p.pid), mib(p.footprint), ...CATEGORIES.map(k => mib(p.categories?.[k] ?? 0)), mib(p.reclaimable ?? 0)])]
+  const rows = [
+    ['process', 'pid', 'footprint MiB', ...CATEGORIES, 'reclaimable'],
+    ...reply.processes.map(p => [
+      `${p.role} / ${p.scope}`,
+      String(p.pid),
+      mib(p.footprint),
+      ...CATEGORIES.map(k => mib(p.categories?.[k] ?? 0)),
+      mib(p.reclaimable ?? 0),
+    ]),
+  ]
   const lines = [reply.processes.length ? grid(rows) : 'no processes']
   if (reply.took !== null && reply.took !== undefined) lines.push(`took ${Math.round(reply.took)} ms`)
   if (reply.error) lines.push(`error: ${reply.error}`)
@@ -354,7 +550,8 @@ export function squeezeText(reply) {
   if (!reply) return `squeeze: ${NA}`
   return `squeeze (${reply.method || 'native'}): WebContent ${mib(reply.before)} → ${mib(reply.after)} MiB (${signed(reply.after - reply.before, mib)})\n(${SYSTEM_WIDE})`
 }
-export const inspectText = reply => reply.shown ? 'Web Inspector opened' : `Web Inspector not shown${reply.reason ? `: ${reply.reason}` : ''}`
+export const inspectText = reply =>
+  reply.shown ? 'Web Inspector opened' : `Web Inspector not shown${reply.reason ? `: ${reply.reason}` : ''}`
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 
@@ -368,13 +565,40 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
  * process samples come from the native sampler only while it runs. `page` is the page's side
  * (`debug`, `evaluate`), replaced in tests.
  */
-export async function runMemory({ seconds = 120, interval = 5, squeeze = true, settle = 3000, socket, app, log = () => {}, now = () => Date.now(), wait = sleep, page = { debug, evaluate } } = {}) {
+// eslint-disable-next-line complexity -- the memory-run driver, a linear script of optional steps (probes, squeezes, footprint); the analysis is split out and tested
+export async function runMemory({
+  seconds = 120,
+  interval = 5,
+  squeeze = true,
+  settle = 3000,
+  socket,
+  app,
+  log = () => {},
+  now = () => Date.now(),
+  wait = sleep,
+  page = { debug, evaluate },
+} = {}) {
   if (!(seconds > 0)) throw new BenchError('--seconds is a positive number')
   if (!(interval > 0 && interval <= seconds)) throw new BenchError('--interval is a positive number, at most --seconds')
   const options = { ...(socket !== undefined ? { socket } : {}), ...(app ? { app } : {}), timeout: 10_000 }
   const status = await page.debug('status', {}, { socket, app })
-  if (!status.enabled) throw new BenchError('Performance collection is off: run `tilr ctl debug on` first (process memory is sampled only while collecting)', 2)
-  const result = { version: 1, when: new Date(now()).toISOString(), seconds, interval, squeeze, support: { footprint: null, squeeze: squeeze ? null : false }, probes: [], footprints: [], squeezes: [], report: null }
+  if (!status.enabled)
+    throw new BenchError(
+      'Performance collection is off: run `tilr ctl debug on` first (process memory is sampled only while collecting)',
+      2,
+    )
+  const result = {
+    version: 1,
+    when: new Date(now()).toISOString(),
+    seconds,
+    interval,
+    squeeze,
+    support: { footprint: null, squeeze: squeeze ? null : false },
+    probes: [],
+    footprints: [],
+    squeezes: [],
+    report: null,
+  }
   const start = now()
   const sample = async phase => {
     const probe = await page.evaluate(PROBE, options)
@@ -384,7 +608,10 @@ export async function runMemory({ seconds = 120, interval = 5, squeeze = true, s
     // The first answer tells whether the Mac app has it; a later miss is skipped.
     const footprint = footprintOf(await page.evaluate(FOOTPRINT, { ...options, timeout: 15_000 }))
     if (!footprint) {
-      if (result.support.footprint === null) { result.support.footprint = false; log(`footprint: ${NA}: no categories`) }
+      if (result.support.footprint === null) {
+        result.support.footprint = false
+        log(`footprint: ${NA}: no categories`)
+      }
     } else {
       result.support.footprint = true
       result.footprints.push({ at: now() - start, ...(phase ? { phase } : {}), ...footprint })
@@ -394,10 +621,16 @@ export async function runMemory({ seconds = 120, interval = 5, squeeze = true, s
   const squeezeNow = async () => {
     if (!squeeze || result.support.squeeze === false) return
     const reply = squeezeOf(await page.evaluate(SQUEEZE, { ...options, timeout: 30_000 }))
-    if (!reply) { result.support.squeeze = false; log(`squeeze: ${NA}`); return }
+    if (!reply) {
+      result.support.squeeze = false
+      log(`squeeze: ${NA}`)
+      return
+    }
     result.support.squeeze = true
     result.squeezes.push({ at: now() - start, ...reply })
-    log(`squeeze (${reply.method || 'native'}): WebContent ${mib(reply.before)} → ${mib(reply.after)} MiB; probing again in ${settle / 1000} s`)
+    log(
+      `squeeze (${reply.method || 'native'}): WebContent ${mib(reply.before)} → ${mib(reply.after)} MiB; probing again in ${settle / 1000} s`,
+    )
     await wait(settle)
     await sample('squeeze')
   }
@@ -407,7 +640,10 @@ export async function runMemory({ seconds = 120, interval = 5, squeeze = true, s
       if (due - start > seconds * 1000) break
       await wait(Math.max(0, due - now()))
       const probe = await sample()
-      if (i % Math.max(1, Math.round(30 / interval)) === 0) log(`${Math.round((now() - start) / 1000)} s: ${probe.processes.map(p => `${p.role} ${(p.memory / MIB).toFixed(1)} MiB`).join(', ') || 'no process sample'}`)
+      if (i % Math.max(1, Math.round(30 / interval)) === 0)
+        log(
+          `${Math.round((now() - start) / 1000)} s: ${probe.processes.map(p => `${p.role} ${(p.memory / MIB).toFixed(1)} MiB`).join(', ') || 'no process sample'}`,
+        )
       // The first probe is the warm-up; what the squeeze leaves after it is the base.
       if (i === 0) await squeezeNow()
     }

@@ -10,7 +10,12 @@
     "outDir": "dist/test",
     "rootDir": "test",
     "types": ["node"],
-    "paths": { "tilr": ["./api/tilr.d.ts"], "tilr/react": ["./api/tilr/react.d.ts"], "tilr/ui": ["./api/tilr/ui.d.ts"], "tilr/native": ["./api/tilr/native.d.ts"] }
+    "paths": {
+      "tilr": ["./api/tilr.d.ts"],
+      "tilr/react": ["./api/tilr/react.d.ts"],
+      "tilr/ui": ["./api/tilr/ui.d.ts"],
+      "tilr/native": ["./api/tilr/native.d.ts"]
+    }
   },
   "files": ["test/harness.ts"],
   "include": []

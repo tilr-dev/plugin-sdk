@@ -90,10 +90,15 @@ export async function serveSite({ site, plugins, overlays = {} }: SiteOptions): 
   /** The file on disk for a URL path, or null (outside every root, or no such file). */
   async function locate(path: string): Promise<string | null> {
     const match = /^plugins\/([^/]+)\/(.+)$/.exec(path)
-    const [base, rest] = match && mounts.has(match[1]) ? [mounts.get(match[1]) ?? '', match[2]] : [root, path || 'index.html']
+    const [base, rest] =
+      match && mounts.has(match[1]) ? [mounts.get(match[1]) ?? '', match[2]] : [root, path || 'index.html']
     const file = normalize(join(base, rest))
     if (file !== base && !file.startsWith(base + sep)) return null
-    try { return (await stat(file)).isFile() ? file : null } catch { return null }
+    try {
+      return (await stat(file)).isFile() ? file : null
+    } catch {
+      return null
+    }
   }
 
   const server = createServer((request, response) => {
@@ -103,24 +108,35 @@ export async function serveSite({ site, plugins, overlays = {} }: SiteOptions): 
     }
     const path = decodeURIComponent(new URL(request.url ?? '/', 'http://x').pathname).replace(/^\/+/, '')
     if (path === 'plugins.json') return send(200, MIME['.json'], JSON.stringify({ plugins: names }))
-    locate(path).then(async file => {
-      if (!file) return send(404, MIME['.txt'], `not found: ${path}`)
-      send(200, MIME[extname(file)] ?? 'application/octet-stream', await readFile(file))
-    }).catch((error: unknown) => send(500, MIME['.txt'], String(error)))
+    locate(path)
+      .then(async file => {
+        if (!file) return send(404, MIME['.txt'], `not found: ${path}`)
+        send(200, MIME[extname(file)] ?? 'application/octet-stream', await readFile(file))
+      })
+      .catch((error: unknown) => send(500, MIME['.txt'], String(error)))
   })
   await new Promise<void>(done => server.listen(0, '127.0.0.1', done))
-  const { port } = server.address() as AddressInfo  // listening on TCP: an AddressInfo
+  const { port } = server.address() as AddressInfo // listening on TCP: an AddressInfo
 
   return {
     url: `http://127.0.0.1:${port}/`,
-    get names() { return [...names] },
-    mount(name, dir) { mounts.set(name, resolve(dir)) },
-    unmount(name) { mounts.delete(name) },
-    setPluginsJson(next) { names = [...next] },
-    close: () => new Promise<void>((done, fail) => {
-      server.closeAllConnections()
-      server.close(error => error ? fail(error) : done())
-    }),
+    get names() {
+      return [...names]
+    },
+    mount(name, dir) {
+      mounts.set(name, resolve(dir))
+    },
+    unmount(name) {
+      mounts.delete(name)
+    },
+    setPluginsJson(next) {
+      names = [...next]
+    },
+    close: () =>
+      new Promise<void>((done, fail) => {
+        server.closeAllConnections()
+        server.close(error => (error ? fail(error) : done()))
+      }),
   }
 }
 
@@ -164,7 +180,8 @@ export interface FakeThis<S> {
  *  unversioned and fails every `requires` on it) plus members written as methods
  *  (`add(n) { … }`), getters (`get value() { … }`) or setters. Members are sent as source text,
  *  so they must not close over anything in the test. */
-export type FakeImpl<S extends object> = { state?: S, version?: string } & Record<string, unknown> & ThisType<FakeThis<S>>
+export type FakeImpl<S extends object> = { state?: S; version?: string } & Record<string, unknown> &
+  ThisType<FakeThis<S>>
 
 /**
  * The source of a minimal plugin that provides service `name`: a `Service` subclass with
@@ -262,7 +279,9 @@ export interface Tilr {
  *  from the boot are collected. */
 export function tilr(page: Page): Tilr {
   const errors: string[] = []
-  page.on('console', message => { if (message.type() === 'error') errors.push(message.text()) })
+  page.on('console', message => {
+    if (message.type() === 'error') errors.push(message.text())
+  })
   page.on('pageerror', error => errors.push(`${error.name}: ${error.message}`))
 
   const list = async (): Promise<PluginRow[]> => {
@@ -281,8 +300,16 @@ export function tilr(page: Page): Tilr {
       // through them on boot.
       await page.waitForFunction(count => {
         const rows = window.tilr?.root.get('plugins')?.list()
-        return rows?.length === count && rows.every(r =>
-          r.state === 'active' || r.state === 'failed' || r.state === 'incompatible' || (r.state === 'off' && !r.enabled))
+        return (
+          rows?.length === count &&
+          rows.every(
+            r =>
+              r.state === 'active' ||
+              r.state === 'failed' ||
+              r.state === 'incompatible' ||
+              (r.state === 'off' && !r.enabled),
+          )
+        )
       }, site.names.length)
     },
     list,
@@ -296,8 +323,15 @@ export function tilr(page: Page): Tilr {
     reload: name => page.evaluate(name => window.tilr.root.get('plugins')?.reload(name) ?? 'no plugins service', name),
     async waitForState(name, state, timeout = 5000) {
       try {
-        await page.waitForFunction(([name, state]) =>
-          window.tilr?.root.get('plugins')?.list().find(r => r.name === name)?.state === state, [name, state] as const, { timeout })
+        await page.waitForFunction(
+          ([name, state]) =>
+            window.tilr?.root
+              .get('plugins')
+              ?.list()
+              .find(r => r.name === name)?.state === state,
+          [name, state] as const,
+          { timeout },
+        )
       } catch (error) {
         const rows = (await list()).map(r => `${r.name}=${r.state}${r.error ? ` (${r.error.message})` : ''}`)
         throw new Error(`${name} did not reach '${state}' in ${timeout}ms; rows: ${rows.join(', ')}`, { cause: error })
@@ -307,21 +341,30 @@ export function tilr(page: Page): Tilr {
     consoleErrors: () => [...errors],
     // Each callback runs in the page, so the lookup is repeated rather than shared.
     fake: name => ({
-      state: () => page.evaluate(name => {
-        const fake = window.__fakes?.[name]
-        if (!fake) throw new Error(`no fake '${name}' running`)
-        return fake.state
-      }, name),
-      set: patch => page.evaluate(([name, patch]) => {
-        const fake = window.__fakes?.[name]
-        if (!fake) throw new Error(`no fake '${name}' running`)
-        Object.assign(fake.state, patch)
-      }, [name, patch] as const),
-      emit: (event, ...args) => page.evaluate(([name, event, args]) => {
-        const fake = window.__fakes?.[name]
-        if (!fake) throw new Error(`no fake '${name}' running`)
-        fake.emit(event, ...args)
-      }, [name, event, args] as const),
+      state: () =>
+        page.evaluate(name => {
+          const fake = window.__fakes?.[name]
+          if (!fake) throw new Error(`no fake '${name}' running`)
+          return fake.state
+        }, name),
+      set: patch =>
+        page.evaluate(
+          ([name, patch]) => {
+            const fake = window.__fakes?.[name]
+            if (!fake) throw new Error(`no fake '${name}' running`)
+            Object.assign(fake.state, patch)
+          },
+          [name, patch] as const,
+        ),
+      emit: (event, ...args) =>
+        page.evaluate(
+          ([name, event, args]) => {
+            const fake = window.__fakes?.[name]
+            if (!fake) throw new Error(`no fake '${name}' running`)
+            fake.emit(event, ...args)
+          },
+          [name, event, args] as const,
+        ),
     }),
   }
   return t

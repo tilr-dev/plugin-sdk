@@ -1,0 +1,25 @@
+# The shared git hooks (the repo standard, §4), shipped as `@tilr-dev/plugin/lefthook.yml`.
+# A repo's lefthook.yml:
+#
+#   extends:
+#     - node_modules/@tilr-dev/plugin/presets/lefthook.yml
+#
+# and lefthook itself as a devDependency, installed by `"prepare": "lefthook install"`.
+# The checks are tilr-plugin's (tools/verify.mjs), so they use the same configs as `verify`.
+pre-commit:
+  commands:
+    staged:
+      # biome format + eslint on the staged files, gitleaks on the staged diff: seconds.
+      run: npx --no -- tilr-plugin hook pre-commit {staged_files}
+
+commit-msg:
+  commands:
+    commitlint:
+      # Conventional Commits, no AI attribution lines.
+      run: npx --no -- tilr-plugin hook commit-msg {1}
+
+pre-push:
+  commands:
+    verify:
+      # The whole `npm run verify`; e2e stays in CI and `npm run verify:full`.
+      run: npm run verify

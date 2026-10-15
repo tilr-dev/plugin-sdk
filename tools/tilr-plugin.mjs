@@ -10,15 +10,24 @@
 //   tilr-plugin install-site [--site DIR]
 //                     dist/ → plugins/<name>/ of the Tilr site, the name appended to plugins.json
 //                     (--site DIR, $TILR_SITE, the app's config, the default; see the README)
+//   tilr-plugin verify [--full] [--skip a,b] [--only a,b]
+//                     the repo standard's checks: format, lint, types, api, unit, dupes, unused,
+//                     secrets, deps (+ e2e, pack with --full); the first failure stops (verify.mjs)
+//   tilr-plugin hook pre-commit <files…> | hook commit-msg <file>
+//                     what the git hooks run (presets/lefthook.yml)
 //
-// Run in the plugin repo (npm scripts are). Exits 1 on a failed build or install.
+// Run in the plugin repo (npm scripts are). Exits 1 on a failed build, install, check or hook.
 import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { buildPlugin, checkNode, installPlugin } from './build-plugin.mjs'
+import { parseVerifyArgs, runHook, runSteps, selectSteps } from './verify.mjs'
 
 const usage = () => {
-  console.error('usage: tilr-plugin build [--watch] [--install] [--site DIR] | dev [--site DIR] | install-site [--site DIR]')
+  console.error(
+    'usage: tilr-plugin build [--watch] [--install] [--site DIR] | dev [--site DIR] | install-site [--site DIR]\n' +
+      '       tilr-plugin verify [--full] [--skip a,b] [--only a,b] | hook pre-commit <files…> | hook commit-msg <file>',
+  )
   process.exit(2)
 }
 
@@ -38,10 +47,23 @@ const [command, ...args] = process.argv.slice(2)
 try {
   checkNode()
   switch (command) {
-    case 'build': await build(args); break
-    case 'dev': await build([...new Set(['--watch', '--install', ...args])]); break
-    case 'install-site': await installPlugin({ argv: args }); break
-    default: usage()
+    case 'build':
+      await build(args)
+      break
+    case 'dev':
+      await build([...new Set(['--watch', '--install', ...args])])
+      break
+    case 'install-site':
+      await installPlugin({ argv: args })
+      break
+    case 'verify':
+      if (!runSteps(selectSteps(parseVerifyArgs(args))).ok) process.exitCode = 1
+      break
+    case 'hook':
+      if (!runHook(args[0], args.slice(1))) process.exitCode = 1
+      break
+    default:
+      usage()
   }
 } catch (error) {
   console.error(`[tilr-plugin] ${error.message}`)

@@ -28,7 +28,11 @@ const expand = expandHome
  *  expanded; null without the file or the key. */
 export function configSite(file = join(configDir(), 'config.yml')) {
   let text
-  try { text = readFileSync(file, 'utf8') } catch { return null }
+  try {
+    text = readFileSync(file, 'utf8')
+  } catch {
+    return null
+  }
   const value = /^site:[ \t]*(.*?)[ \t]*(?:[ \t]#.*)?$/m.exec(text)?.[1].replace(/^(['"])(.*)\1$/, '$2')
   return value ? resolve(dirname(file), expand(value)) : null
 }
@@ -37,14 +41,21 @@ export function configSite(file = join(configDir(), 'config.yml')) {
 export function siteDir(argv = process.argv.slice(2), env = process.env) {
   const flag = argv.indexOf('--site')
   if (flag !== -1 && !argv[flag + 1]) throw new Error('--site needs a folder')
-  return resolve(expand(flag !== -1 ? argv[flag + 1] : env.TILR_SITE || configSite(join(configDir(env), 'config.yml')) || defaultSite(env)))
+  return resolve(
+    expand(
+      flag !== -1
+        ? argv[flag + 1]
+        : env.TILR_SITE || configSite(join(configDir(env), 'config.yml')) || defaultSite(env),
+    ),
+  )
 }
 
 /** The plugin's folder name in a plugin repo: package.json's `tilr.name`, or the package name
  *  without its scope and `plugin-` prefix (@tilr-dev/plugin-clock → clock). */
 export function pluginName(pkg) {
   const name = pkg.tilr?.name ?? pkg.name.replace(/^@[^/]+\//, '').replace(/^plugin-/, '')
-  if (!/^[a-z0-9][a-z0-9._-]*$/i.test(name)) throw new Error(`bad plugin name '${name}' (set "tilr": { "name": … } in package.json)`)
+  if (!/^[a-z0-9][a-z0-9._-]*$/i.test(name))
+    throw new Error(`bad plugin name '${name}' (set "tilr": { "name": … } in package.json)`)
   return name
 }
 
@@ -58,8 +69,28 @@ async function files(dir) {
   return out.sort()
 }
 
-const real = path => { try { return realpathSync(path) } catch { return resolve(path) } }
+const real = path => {
+  try {
+    return realpathSync(path)
+  } catch {
+    return resolve(path)
+  }
+}
 const inside = (path, dir) => path === dir || path.startsWith(dir + sep)
+
+/** plugins.json with the names of `list` it lacks appended, through `put`. Written when names
+ *  are missing, and when the file is: the page needs one even if empty. */
+async function mergeList(site, list, put) {
+  const json = join(site, 'plugins.json')
+  const current = existsSync(json) ? JSON.parse(await readFile(json, 'utf8')) : { plugins: [] }
+  if (!Array.isArray(current.plugins)) throw new Error(`${json}: expected { "plugins": [names] }`)
+  const missing = list.filter(name => !current.plugins.includes(name))
+  if (missing.length || !existsSync(json))
+    await put(
+      'plugins.json',
+      Buffer.from(`${JSON.stringify({ ...current, plugins: [...current.plugins, ...missing] }, null, 2)}\n`),
+    )
+}
 
 /**
  * Installs into `site`:
@@ -72,7 +103,8 @@ const inside = (path, dir) => path === dir || path.startsWith(dir + sep)
 export async function installSite({ site, root = null, plugins = {}, list = Object.keys(plugins) }) {
   site = resolve(site)
   for (const from of [root, ...Object.values(plugins)].filter(Boolean)) {
-    if (inside(real(site), real(from)) || inside(real(from), real(site))) throw new Error(`refusing to install ${from} into ${site}: one is inside the other`)
+    if (inside(real(site), real(from)) || inside(real(from), real(site)))
+      throw new Error(`refusing to install ${from} into ${site}: one is inside the other`)
   }
   await mkdir(site, { recursive: true })
   // Same filesystem as the site (rename is atomic), outside it (the app sees no temp files).
@@ -81,7 +113,9 @@ export async function installSite({ site, root = null, plugins = {}, list = Obje
   let n = 0
   const put = async (path, data) => {
     const target = join(site, path)
-    try { if (Buffer.compare(await readFile(target), data) === 0) return } catch {}
+    try {
+      if (Buffer.compare(await readFile(target), data) === 0) return
+    } catch {}
     await mkdir(dirname(target), { recursive: true })
     const staged = join(temp, String(n++))
     await writeFile(staged, data)
@@ -99,15 +133,11 @@ export async function installSite({ site, root = null, plugins = {}, list = Obje
         changed.push(`-${join('plugins', name, file)}`)
       }
     }
-    const json = join(site, 'plugins.json')
-    const current = existsSync(json) ? JSON.parse(await readFile(json, 'utf8')) : { plugins: [] }
-    if (!Array.isArray(current.plugins)) throw new Error(`${json}: expected { "plugins": [names] }`)
-    const missing = list.filter(name => !current.plugins.includes(name))
-    // Written when names are missing, and when the file is: the page needs one even if empty.
-    if (missing.length || !existsSync(json)) await put('plugins.json', Buffer.from(`${JSON.stringify({ ...current, plugins: [...current.plugins, ...missing] }, null, 2)}\n`))
+    await mergeList(site, list, put)
     if (root) {
       // store.json is the app's (its seed, from a template), never the kit's.
-      const top = (await files(root)).filter(file => file !== 'plugins.json' && file !== 'store.json' && !file.startsWith(`plugins${sep}`))
+      const top = (await files(root))
+        .filter(file => file !== 'plugins.json' && file !== 'store.json' && !file.startsWith(`plugins${sep}`))
         .sort((a, b) => (a === 'index.html') - (b === 'index.html'))
       for (const file of top) await put(file, await readFile(join(root, file)))
     }
