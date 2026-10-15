@@ -1,0 +1,31 @@
+{
+  // The compiler settings of the core and of every plugin repo, shipped in @tilr-dev/plugin:
+  // `"extends": "@tilr-dev/plugin/tsconfig.base.json"`. Type-check only: esbuild strips the types
+  // file by file, so nothing here may need a whole-program emit (erasableSyntaxOnly,
+  // isolatedModules). Relative paths in this file resolve against this file, i.e. inside the
+  // installed package, wherever the extending tsconfig is.
+  "compilerOptions": {
+    "target": "es2022",
+    "lib": ["dom", "dom.iterable", "es2022"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "noEmit": true,
+    "strict": true,
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "skipLibCheck": true,
+    // No ambient @types/*: a plugin runs in the page, `process` or `Buffer` in one is an error.
+    // Node's types belong to the tests' own tsconfig.
+    "types": [],
+    // At runtime a plugin imports 'tilr' and the page's import map resolves it to the core's
+    // tilr.js. For tsc it is the API snapshot shipped in the package. The core overrides this
+    // with its sources (tsconfig.json).
+    "jsx": "react-jsx",
+    "paths": { "tilr": ["./api/tilr.d.ts"], "tilr/react": ["./api/tilr/react.d.ts"], "tilr/ui": ["./api/tilr/ui.d.ts"], "tilr/native": ["./api/tilr/native.d.ts"] }
+  },
+  // `__TILR_VERSION__`. `files` is kept when the extending config sets only `include`.
+  "files": ["./globals.d.ts"]
+}

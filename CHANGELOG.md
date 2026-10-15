@@ -1,0 +1,43 @@
+# Changelog
+
+The versions of `@tilr-dev/plugin`, which are the versions of the plugin API: what `api: '^0.1.0'`
+in a plugin refers to. The contract is `api/` (README, Keeping api/ and site/ in sync). While
+the version is 0.x, a minor bump may break plugins (`^0.1.0` accepts 0.1.x only). Entries before
+0.1.14 are in the core repo's (web/) CHANGELOG, where the package used to live.
+
+## 0.1.14 — unreleased
+
+The SDK moves to its own repo (this one), extracted from the core repo (web/) without history.
+The package's contents and exports are those of web's 0.1.14; what changed is where they come from:
+
+- `api/` is committed here as the source of truth for plugin repos; `npm run api:check` /
+  `api:sync` compare it with (and refresh it from) the declarations web's sources emit.
+- `site/`, the built core page the harness serves and `@tilr-dev/plugin/test/node` resolves to,
+  is copied from web by `npm run sync:runtime` (gitignored, packed). `prepack` refuses a
+  tarball without it, or with a page of another version.
+- `tilr` and `addSitePlugins` read the core plugin list from the kit's `static/plugins.json`
+  (a web checkout) or, failing that, `site/plugins.json` (this package): `corePlugins()` in
+  `tools/paths.js`.
+- Left in web, not shipped any more: `tools/performance-exporter.mjs`,
+  `tools/publish-workspace.mjs` (core/app tools, not the plugin kit).
+
+From web's 0.1.14 entry, the SDK itself (docs/plugin-sdk.md). Additions only: a patch while 0.x,
+so installed plugins with `api: '^0.1.x'` keep running; a plugin that uses the new helpers is
+built against 0.1.14 and stamped `api: '^0.1.14'`.
+
+- `'tilr/ui'`: `frame(win, { className, title, controls })` → `{ tile, header, controls, body,
+  dispose }`, the standard frame without React; `element(tag, className, text)`;
+  `frameControls(win)` and `FRAME`.
+- `'tilr'`: `onLayout(ctx, listener, { ignore })`; `optional(ctx, services, apply)`; the types
+  `LayoutChange`, `LayoutChangeKind`.
+- `'tilr/native'` (new import map entry): `connectNative()`, `hasNative()`, `nativeChannel()`;
+  the `webkit` global's type.
+- `version` / `api` defaults: a plugin built by `@tilr-dev/plugin/build` may leave them out; the
+  build's stamp (`__tilrBuild`) supplies package.json's version and `^` + the SDK version.
+- `__TILR_API__` in `globals.d.ts` (shipped): the SDK version the code is built with.
+- Kit, not API: `@tilr-dev/plugin/build` (`buildPlugin`, `installPlugin`),
+  `@tilr-dev/plugin/playwright`, `@tilr-dev/plugin/test/global-setup`, `tsconfig.plugin.json`,
+  `tsconfig.plugin-test.json`, `withRoot()` in `@tilr-dev/plugin/eslint`, the `tilr-plugin` bin;
+  `esbuild` an optional peer.
+- `@tilr-dev/plugin/test/node`: resolves the import map's names to the package's site/, so a
+  unit test can import the built `dist/index.js`.

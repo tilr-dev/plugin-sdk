@@ -1,0 +1,27 @@
+{
+  // A plugin repo's tsconfig.json, shipped in @tilr-dev/plugin:
+  //   { "extends": "@tilr-dev/plugin/tsconfig.plugin.json" }
+  // (an `include` of its own is fine too: `"include": ["src"]`). tsconfig.base.json's settings,
+  // plus what every plugin repo repeated:
+  // - `paths`: 'tilr', 'tilr/react', 'tilr/ui', 'tilr/native' → this package's api/ (relative to
+  //   this file: wherever the package is installed or linked), and 'cordis' → the plugin's own
+  //   node_modules/cordis (${configDir}: the folder of the plugin's tsconfig). One cordis for the
+  //   whole program: the declarations of another plugin installed with `file:` (its api.ts)
+  //   augment 'tilr' and 'cordis' and must see the same modules the plugin does. A mapped file
+  //   that is missing falls back to the usual node_modules lookup.
+  // - src/, without the unit tests (tsconfig.plugin-test.json checks those, with Node's types).
+  //   .ts and .tsx alike: `jsx` is set (react-jsx), React's types come from the plugin's
+  //   @types/react when it renders with React.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "paths": {
+      "tilr": ["./api/tilr.d.ts"],
+      "tilr/react": ["./api/tilr/react.d.ts"],
+      "tilr/ui": ["./api/tilr/ui.d.ts"],
+      "tilr/native": ["./api/tilr/native.d.ts"],
+      "cordis": ["${configDir}/node_modules/cordis/lib/types/index.d.ts"]
+    }
+  },
+  "include": ["${configDir}/src"],
+  "exclude": ["${configDir}/src/**/*.test.ts", "${configDir}/src/**/*.test.tsx"]
+}

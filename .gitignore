@@ -1,0 +1,8 @@
+.DS_Store
+node_modules/
+dist/
+# The core page, copied from web/ by `npm run sync:runtime`; packed (package.json `files`), not committed.
+site/
+test-results/
+playwright-report/
+*.tgz

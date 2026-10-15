@@ -1,0 +1,17 @@
+{
+  // `npm run build`: test/harness.ts → dist/test/harness.js + harness.d.ts, what the package
+  // exports as `@tilr-dev/plugin/test`. 'tilr' is the API snapshot (api/), so the declarations
+  // import only 'tilr', @playwright/test and node:, all of which resolve in a plugin repo
+  // (tsconfig.base.json maps 'tilr' to the same api/).
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    "outDir": "dist/test",
+    "rootDir": "test",
+    "types": ["node"],
+    "paths": { "tilr": ["./api/tilr.d.ts"], "tilr/react": ["./api/tilr/react.d.ts"], "tilr/ui": ["./api/tilr/ui.d.ts"], "tilr/native": ["./api/tilr/native.d.ts"] }
+  },
+  "files": ["test/harness.ts"],
+  "include": []
+}

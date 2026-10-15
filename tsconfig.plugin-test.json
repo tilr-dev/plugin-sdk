@@ -1,0 +1,17 @@
+{
+  // A plugin repo's tsconfig.test.json, shipped in @tilr-dev/plugin:
+  //   { "extends": "@tilr-dev/plugin/tsconfig.plugin-test.json" }
+  // The tests run in Node (node --test, Playwright): Node's types, which tsconfig.plugin.json
+  // keeps out of the plugin, and imports by the real file name ('./lib.ts'), which Node loads
+  // itself. The plugin's sources come in through the tests' imports. The lint preset
+  // (@tilr-dev/plugin/eslint) checks tests with ./tsconfig.test.json: keep that name.
+  "extends": "./tsconfig.plugin.json",
+  "compilerOptions": { "types": ["node"], "allowImportingTsExtensions": true },
+  "include": [
+    "${configDir}/src/**/*.test.ts",
+    "${configDir}/src/**/*.test.tsx",
+    "${configDir}/test",
+    "${configDir}/playwright.config.ts"
+  ],
+  "exclude": []
+}
