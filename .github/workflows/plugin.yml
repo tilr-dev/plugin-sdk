@@ -4,7 +4,7 @@
 #   permissions: { contents: read }
 #   jobs:
 #     verify:
-#       uses: tilr-dev/plugin-sdk/.github/workflows/plugin.yml@v0
+#       uses: tilr-dev/plugin-sdk/.github/workflows/plugin.yml@v0.2.0  # a release tag; Dependabot bumps it
 #
 # npm ci → Playwright WebKit → gitleaks → `npm run verify:full` (tilr-plugin verify --full).
 name: plugin
