@@ -95,7 +95,6 @@
     "tsconfig.plugin-test.json",
     "eslint.base.js",
     "presets/",
-    "templates/",
     "CHANGELOG.md",
     "LICENSE-MIT",
     "LICENSE-APACHE"

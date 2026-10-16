@@ -32,7 +32,7 @@ you commit is published. README.md says what is where; docs/ has the details.
 - `api/` is the plugin contract: it changes only through `npm run api:sync` from the core repo,
   with a `tilrApi` bump in a `feat` commit (README, Keeping api/ and site/ in sync, Versions).
   `site/` changes only through `npm run sync:runtime`. CHANGELOG.md is release-please's.
-- What ships to plugin repos (`presets/`, `eslint.base.js`, `templates/`, `tools/verify.mjs`)
+- What ships to plugin repos (`presets/`, `eslint.base.js`, `tools/verify.mjs`, `tools/init-plugin.mjs`)
   changes every plugin's checks: say so in the CHANGELOG.
 
 ## Secrets

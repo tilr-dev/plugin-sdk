@@ -14,6 +14,8 @@
 // - The app watches the site and hot-reloads what changes, so a file is written only when its
 //   bytes differ, atomically (staged next to the site folder, renamed into place), a plugin's
 //   index.js after its assets, plugins.json after the plugin folders, index.html last.
+// - Uninstalling is the reverse: the names leave plugins.json first (the page stops loading
+//   them), then their folders go (moved out of the site at once, then deleted).
 import { existsSync, readFileSync, realpathSync } from 'node:fs'
 import { mkdir, mkdtemp, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { configDir, defaultSite, expandHome } from './paths.js'
@@ -50,12 +52,14 @@ export function siteDir(argv = process.argv.slice(2), env = process.env) {
   )
 }
 
+/** What a plugin name may be: a folder name under plugins/, safe in a URL and a CSS class. */
+export const PLUGIN_NAME = /^[a-z0-9][a-z0-9._-]*$/i
+
 /** The plugin's folder name in a plugin repo: package.json's `tilr.name`, or the package name
  *  without its scope and `plugin-` prefix (@tilr-dev/plugin-clock → clock). */
 export function pluginName(pkg) {
   const name = pkg.tilr?.name ?? pkg.name.replace(/^@[^/]+\//, '').replace(/^plugin-/, '')
-  if (!/^[a-z0-9][a-z0-9._-]*$/i.test(name))
-    throw new Error(`bad plugin name '${name}' (set "tilr": { "name": … } in package.json)`)
+  if (!PLUGIN_NAME.test(name)) throw new Error(`bad plugin name '${name}' (set "tilr": { "name": … } in package.json)`)
   return name
 }
 
@@ -77,6 +81,18 @@ const real = path => {
   }
 }
 const inside = (path, dir) => path === dir || path.startsWith(dir + sep)
+
+/** Names of the staged files (in a fresh temp folder per install, so a counter is enough). */
+let staging = 0
+
+/** Writes `data` to `site`/`path` atomically: staged in `temp` (same file system), renamed in. */
+async function writeAtomic(site, temp, path, data) {
+  const target = join(site, path)
+  await mkdir(dirname(target), { recursive: true })
+  const staged = join(temp, String(staging++))
+  await writeFile(staged, data)
+  await rename(staged, target)
+}
 
 /** plugins.json with the names of `list` it lacks appended, through `put`. Written when names
  *  are missing, and when the file is: the page needs one even if empty. */
@@ -110,16 +126,12 @@ export async function installSite({ site, root = null, plugins = {}, list = Obje
   // Same filesystem as the site (rename is atomic), outside it (the app sees no temp files).
   const temp = await mkdtemp(join(dirname(site), '.tilr-install-'))
   const changed = []
-  let n = 0
   const put = async (path, data) => {
     const target = join(site, path)
     try {
       if (Buffer.compare(await readFile(target), data) === 0) return
     } catch {}
-    await mkdir(dirname(target), { recursive: true })
-    const staged = join(temp, String(n++))
-    await writeFile(staged, data)
-    await rename(staged, target)
+    await writeAtomic(site, temp, path, data)
     changed.push(path)
   }
   try {
@@ -140,6 +152,42 @@ export async function installSite({ site, root = null, plugins = {}, list = Obje
         .filter(file => file !== 'plugins.json' && file !== 'store.json' && !file.startsWith(`plugins${sep}`))
         .sort((a, b) => (a === 'index.html') - (b === 'index.html'))
       for (const file of top) await put(file, await readFile(join(root, file)))
+    }
+  } finally {
+    await rm(temp, { recursive: true, force: true })
+  }
+  return changed
+}
+
+/**
+ * Uninstalls `names` from `site`: each leaves plugins.json (other entries and keys kept), then its
+ * plugins/<name>/ folder is removed. A name that is in neither is skipped. Resolves to the changed
+ * site paths (`-plugins/<name>` for a removed folder); empty when nothing was there.
+ */
+export async function uninstallSite({ site, names }) {
+  site = resolve(site)
+  for (const name of names) if (!PLUGIN_NAME.test(name)) throw new Error(`bad plugin name '${name}'`)
+  if (!existsSync(site)) return []
+  const changed = []
+  const temp = await mkdtemp(join(dirname(site), '.tilr-install-'))
+  try {
+    const json = join(site, 'plugins.json')
+    if (existsSync(json)) {
+      const current = JSON.parse(await readFile(json, 'utf8'))
+      if (!Array.isArray(current.plugins)) throw new Error(`${json}: expected { "plugins": [names] }`)
+      const kept = current.plugins.filter(name => !names.includes(name))
+      if (kept.length !== current.plugins.length) {
+        const text = `${JSON.stringify({ ...current, plugins: kept }, null, 2)}\n`
+        await writeAtomic(site, temp, 'plugins.json', Buffer.from(text))
+        changed.push('plugins.json')
+      }
+    }
+    for (const name of names) {
+      const dir = join(site, 'plugins', name)
+      if (!existsSync(dir)) continue
+      // Out of the site in one rename (the app sees the folder go at once), then deleted.
+      await rename(dir, join(temp, `plugin-${name}`))
+      changed.push(`-${join('plugins', name)}`)
     }
   } finally {
     await rm(temp, { recursive: true, force: true })

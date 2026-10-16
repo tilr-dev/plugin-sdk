@@ -2,7 +2,7 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "entry": ["scripts/*.mjs", "presets/*.js", "tools/*.test.mjs"],
   "project": ["**/*.{js,mjs,ts,mts}"],
-  "ignore": ["api/**", "dist/**", "site/**", "templates/**"],
+  "ignore": ["api/**", "dist/**", "site/**"],
   "ignoreDependencies": ["@commitlint/cli", "jscpd"],
   "ignoreExportsUsedInFile": true
 }

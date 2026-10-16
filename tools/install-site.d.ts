@@ -6,6 +6,8 @@ export declare const DEFAULT_SITE: string
 export declare function configSite(file?: string): string | null
 /** --site DIR, $TILR_SITE, the app's config, <config>/apps/default; in that order. */
 export declare function siteDir(argv?: string[], env?: Record<string, string | undefined>): string
+/** What a plugin name may be: a folder name under plugins/, safe in a URL and a CSS class. */
+export declare const PLUGIN_NAME: RegExp
 /** package.json's `tilr.name`, or the package name without scope and `plugin-` prefix. */
 export declare function pluginName(pkg: { name: string; tilr?: { name?: string } }): string
 export interface InstallOptions {
@@ -19,3 +21,10 @@ export interface InstallOptions {
 }
 /** Resolves to the changed site paths (`-path` for a removal); empty when nothing differed. */
 export declare function installSite(options: InstallOptions): Promise<string[]>
+export interface UninstallOptions {
+  site: string
+  /** The plugins to remove: from plugins.json first, then their plugins/<name>/ folders. */
+  names: string[]
+}
+/** Resolves to the changed site paths (`-plugins/<name>` for a removed folder); empty when none was there. */
+export declare function uninstallSite(options: UninstallOptions): Promise<string[]>
