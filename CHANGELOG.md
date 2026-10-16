@@ -5,6 +5,13 @@ in a plugin refers to. The contract is `api/` (README, Keeping api/ and site/ in
 the version is 0.x, a minor bump may break plugins (`^0.1.0` accepts 0.1.x only). Entries before
 0.1.14 are in the core repo's (web/) CHANGELOG, where the package used to live.
 
+## [0.2.1](https://github.com/tilr-dev/plugin-sdk/compare/v0.2.0...v0.2.1) (2026-10-16)
+
+
+### Bug Fixes
+
+* reference plugin.yml by an existing release tag ([#11](https://github.com/tilr-dev/plugin-sdk/issues/11)) ([81bdea8](https://github.com/tilr-dev/plugin-sdk/commit/81bdea83e197cc1323fdcb765f6b4cd89b3f6abe))
+
 ## [0.2.0](https://github.com/tilr-dev/plugin-sdk/compare/v0.1.16...v0.2.0) (2026-10-16)
 
 

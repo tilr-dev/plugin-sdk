@@ -1,6 +1,6 @@
 {
   "name": "@tilr-dev/plugin",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "tilrApi": "0.1.14",
   "type": "module",
   "engines": {
