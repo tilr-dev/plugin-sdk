@@ -9,13 +9,9 @@
       "groupName": "github actions"
     },
     {
-      "description": "The check toolchain (Biome, ESLint, commitlint, jscpd, knip, lefthook): one PR",
+      "description": "The check toolchain (Biome, commitlint, jscpd, knip, lefthook): one PR",
       "matchPackageNames": [
         "@biomejs/biome",
-        "eslint",
-        "@eslint/js",
-        "typescript-eslint",
-        "@eslint-community/eslint-plugin-eslint-comments",
         "@commitlint/**",
         "conventional-changelog-conventionalcommits",
         "jscpd",
@@ -23,6 +19,11 @@
         "lefthook"
       ],
       "groupName": "check toolchain"
+    },
+    {
+      "description": "TypeScript and oxlint move together: oxlint-tsgolint is built on one TypeScript release",
+      "matchPackageNames": ["typescript", "oxlint", "oxlint-tsgolint"],
+      "groupName": "typescript and oxlint"
     }
   ]
 }
