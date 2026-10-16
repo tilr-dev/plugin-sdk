@@ -8,7 +8,7 @@ root context plus hot-reloadable plugins; a plugin is one `index.js` the page lo
   are for tsc),
 - the **shared build** (`@tilr-dev/plugin/build`) and the **CLI** (`tilr-plugin`),
 - the **e2e harness** (`@tilr-dev/plugin/test`) and the **built core page** it serves (`site/`),
-- the **shared configs**: tsconfig, eslint, Playwright, and the repo standard's checks
+- the **shared configs**: tsconfig, oxlint, Playwright, and the repo standard's checks
   (`tilr-plugin verify`) with their presets: Biome (format), lefthook (git hooks), commitlint,
   jscpd, knip; and `tilr-plugin init`, which fills a copy of the
   [template repo](https://github.com/tilr-dev/plugin-template) in as a new plugin.
@@ -38,7 +38,7 @@ already lists every dev dependency, so `npm install` is all it takes.
 
   ```sh
   npm install -D @tilr-dev/plugin cordis@npm:@deepseek-ai/cordis@4.0.1 esbuild typescript \
-    eslint @eslint/js typescript-eslint @playwright/test @types/node lefthook
+    oxlint oxlint-tsgolint @playwright/test @types/node lefthook
   npx playwright install webkit      # once per machine
   ```
 
@@ -67,9 +67,10 @@ whole kit is its sources, its tests and one-line config files:
 package.json          name, version, tilr.name, the scripts below, dev dependencies
 build.mjs             optional: import { buildPlugin } from '@tilr-dev/plugin/build'; await buildPlugin({ … })
 playwright.config.ts  export { default } from '@tilr-dev/plugin/playwright'
-tsconfig.json         { "extends": "@tilr-dev/plugin/tsconfig.plugin.json", "include": ["src"] }
+tsconfig.json         { "files": [], "references": [{ "path": "./tsconfig.src.json" }, { "path": "./tsconfig.test.json" }] }
+tsconfig.src.json     { "extends": "@tilr-dev/plugin/tsconfig.plugin.json", "include": ["src"] }
 tsconfig.test.json    { "extends": "@tilr-dev/plugin/tsconfig.plugin-test.json" }
-eslint.config.js      import { withRoot } from '@tilr-dev/plugin/eslint'; export default withRoot(import.meta.dirname)
+.oxlintrc.json        { "extends": ["./node_modules/@tilr-dev/plugin/presets/oxlint.json"], "ignorePatterns": [ … ] }
 biome.json            { "root": true, "extends": ["@tilr-dev/plugin/biome"] }
 lefthook.yml          extends: [node_modules/@tilr-dev/plugin/presets/lefthook.yml]
 commitlint.config.js  export { default } from '@tilr-dev/plugin/commitlint'
@@ -87,7 +88,7 @@ src/**/*.test.ts      optional: unit tests (node --test)
   "dev": "tilr-plugin build --watch",
   "dev:site": "tilr-plugin dev",
   "install:site": "tilr-plugin build --install",
-  "check": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json && eslint .",
+  "check": "tilr-plugin verify --only lint,types",
   "test": "npm run test:unit && npm run test:e2e",
   "test:unit": "node --test 'src/**/*.test.ts'",
   "test:e2e": "playwright test",
@@ -99,6 +100,13 @@ src/**/*.test.ts      optional: unit tests (node --test)
 
 The [template repo](https://github.com/tilr-dev/plugin-template) has all of these, with lefthook
 as a dev dependency.
+
+tsconfig.json is a solution: it only points at the two projects, so tsgolint (oxlint's
+type-aware rules) and the editor lint each file with its own project, the tests with Node's
+types. `tsc -p tsconfig.json` checks nothing; `tilr-plugin verify` checks tsconfig.src.json and
+tsconfig.test.json. `extends` in .oxlintrc.json takes the preset's rules, options and overrides
+but not its `ignorePatterns`: a repo lists its own (`node_modules/`, `dist/`, `test-results/`,
+`playwright-report/`, …).
 
 If a unit test imports the built `dist/index.js`, `test:unit` becomes `tilr-plugin build && node
 --import @tilr-dev/plugin/test/node --test 'src/**/*.test.ts'`: the hook resolves `'tilr'`,
@@ -149,8 +157,8 @@ export default definePlugin({
 | `'@tilr-dev/plugin/playwright'` | the Playwright config (WebKit, `test/`, globalSetup). |
 | `'@tilr-dev/plugin/install'` | `installSite()`, `siteDir()`, `pluginName()`: installing into a Tilr site folder. |
 | `@tilr-dev/plugin/site/…` | the built core page; `coreSite()` returns its path. |
-| `@tilr-dev/plugin/tsconfig.base.json`, `tsconfig.plugin.json`, `tsconfig.plugin-test.json` | compiler settings; a plugin repo's tsconfig.json / tsconfig.test.json by `extends` alone. |
-| `@tilr-dev/plugin/eslint` | the lint rules (`eslint.base.js`); `withRoot(import.meta.dirname)`. |
+| `@tilr-dev/plugin/tsconfig.base.json`, `tsconfig.plugin.json`, `tsconfig.plugin-test.json` | compiler settings; a plugin repo's tsconfig.src.json / tsconfig.test.json by `extends` alone. |
+| `@tilr-dev/plugin/oxlint` | the lint rules (`presets/oxlint.json`); oxlint's `extends` takes a path: `./node_modules/@tilr-dev/plugin/presets/oxlint.json`. |
 | `@tilr-dev/plugin/biome` | the Biome config (format only, linter off): `"extends": ["@tilr-dev/plugin/biome"]`. |
 | `@tilr-dev/plugin/lefthook.yml` | the git hooks (`presets/lefthook.yml`); lefthook extends it by path in `node_modules/`. |
 | `@tilr-dev/plugin/commitlint` | the commitlint config: Conventional Commits, the standard's types, no AI attribution. |
@@ -220,10 +228,10 @@ simulate a change on disk. `tilr(page)` has `open`, `list`, `row`, `hmr`, `toggl
 ```text
 api/            the plugin API's declarations (committed; the contract)
 test/harness.ts the e2e harness → dist/test/ (npm run build)
-tools/          build-plugin, tilr-plugin, init-plugin, verify, install-site, paths, node-resolve,
-                playwright, global-setup; *.test.mjs are their unit tests
+tools/          build-plugin, tilr-plugin, init-plugin, verify, disable-comments, install-site, paths,
+                node-resolve, playwright, global-setup; *.test.mjs are their unit tests
 scripts/        sync-runtime.mjs (site/ from web), api-sync.mjs (api/ against web), prepare.mjs (git hooks)
-presets/        biome, lefthook, commitlint, jscpd, knip: shipped, and used by this repo too
+presets/        oxlint, biome, lefthook, commitlint, jscpd, knip: shipped, and used by this repo too
 .github/        ci.yml, release.yml (this repo), plugin.yml (the reusable CI of plugin repos)
 docs/           plugin-sdk.md, GUIDELINES.md, SDK.md
 site/           the core page, copied from web by `npm run sync:runtime` (committed, packed)
@@ -233,7 +241,7 @@ site/           the core page, copied from web by `npm run sync:runtime` (commit
 | --- | --- |
 | `npm run build` | the harness → `dist/test/` |
 | `npm run verify` / `verify:full` | every check (below); `:full` adds `npm pack --dry-run` |
-| `npm run check` | `tsc` (declarations, harness) and `eslint` |
+| `npm run check` | the lint and types steps of verify: oxlint and `tsc` (declarations, harness) |
 | `npm run format` | `biome format --write .` |
 | `npm test` (`test:unit`) | the tools' unit tests (`node --test tools/*.test.mjs`; those that need `site/` are skipped without it) |
 | `npm run sync:runtime` | `site/` from web's built `site/` (`-- --build`: build web's page into a temp folder first) |
@@ -298,8 +306,8 @@ is what a human, the git hooks and CI run, so green locally means green in CI. I
 | step | tool | what it catches |
 | --- | --- | --- |
 | format | Biome, `biome format` (format only) | style; `npm run format` fixes it |
-| lint | ESLint, type-aware (`eslint.base.js`) | `any`, `!`, unexplained ts-ignore, dropped promises, complexity > 15, depth > 4, params > 4, disables without a reason; warnings: file length, magic numbers |
-| types | `tsc --noEmit` (tsconfig.json, tsconfig.test.json) | types |
+| lint | oxlint, type-aware through oxlint-tsgolint (`presets/oxlint.json`), then `tools/disable-comments.mjs` | `any`, `!`, unexplained ts-ignore, dropped promises, complexity > 15, depth > 4, params > 4, unused disables, disables without the rule or a ` -- reason`, whole-file disables (a range disable without its enable); warnings: file length, magic numbers |
+| types | `tsc --noEmit -p` (tsconfig.src.json, tsconfig.test.json) | types |
 | api | `npm run api:check` (when the repo has it) | an unnoticed change of the public contract |
 | unit | `npm run test:unit` | logic |
 | dupes | jscpd (`presets/jscpd.json` or `.jscpd.json`) | copy-paste between files |
@@ -326,7 +334,9 @@ every pull request and push to master (everything, with the unit tests that need
 `verify:full` for plugin repos (`uses: tilr-dev/plugin-sdk/.github/workflows/plugin.yml@v0`,
 input `node-version`; the SDK comes from npm with `site/` in it); `release.yml` is
 release-please and the npm publish of each release (Releasing). Workflows have minimal
-`permissions`, no `pull_request_target`, and actions pinned by commit SHA (Renovate updates them).
+`permissions`, no `pull_request_target`, and actions pinned by commit SHA. Dependabot
+(`.github/dependabot.yml`) updates the actions and the npm dependencies weekly, `typescript`,
+`oxlint` and `oxlint-tsgolint` in one group of their own.
 
 Contributing: read [AGENTS.md](AGENTS.md). Short branches, Conventional Commits, PRs
 squash-merged into a green `master`; `npm run verify` before every commit.

@@ -6,7 +6,7 @@
   "engines": {
     "node": ">=22.18"
   },
-  "description": "The kit for writing Tilr plugins in their own repos: the plugin API's types, the shared build and CLI (tilr-plugin), the e2e harness with the built core page, shared tsconfig, eslint and Playwright config, and the repo standard's checks (tilr-plugin verify) with their presets (Biome, lefthook, commitlint, jscpd, knip).",
+  "description": "The kit for writing Tilr plugins in their own repos: the plugin API's types, the shared build and CLI (tilr-plugin), the e2e harness with the built core page, shared tsconfig, oxlint and Playwright config, and the repo standard's checks (tilr-plugin verify) with their presets (Biome, lefthook, commitlint, jscpd, knip).",
   "license": "MIT OR Apache-2.0",
   "author": "Denis Shirokov",
   "homepage": "https://github.com/tilr-dev/plugin-sdk#readme",
@@ -70,7 +70,7 @@
     "./globals": {
       "types": "./globals.d.ts"
     },
-    "./eslint": "./eslint.base.js",
+    "./oxlint": "./presets/oxlint.json",
     "./install": {
       "types": "./tools/install-site.d.ts",
       "default": "./tools/install-site.js"
@@ -93,7 +93,6 @@
     "tsconfig.base.json",
     "tsconfig.plugin.json",
     "tsconfig.plugin-test.json",
-    "eslint.base.js",
     "presets/",
     "CHANGELOG.md",
     "LICENSE-MIT",
@@ -101,7 +100,7 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.harness.json",
-    "check": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json && eslint .",
+    "check": "node tools/tilr-plugin.mjs verify --only lint,types",
     "format": "biome format --write .",
     "test": "npm run test:unit",
     "test:unit": "node --test \"tools/*.test.mjs\" \"scripts/*.test.mjs\"",
@@ -118,25 +117,20 @@
     "@biomejs/biome": "^2.5.15",
     "@commitlint/cli": "^21.2.3",
     "@commitlint/config-conventional": "^21.2.3",
-    "@eslint-community/eslint-plugin-eslint-comments": "^4.8.1",
     "conventional-changelog-conventionalcommits": "^10.4.1",
     "jscpd": "^5.4.1",
     "knip": "^6.41.0"
   },
   "peerDependencies": {
-    "@eslint/js": ">=10",
     "@playwright/test": "^1.64.0",
     "@types/react": "^19.0.0",
     "cordis": "^4.0.1",
     "esbuild": ">=0.25",
-    "eslint": ">=10",
     "lefthook": "^2.2.2",
-    "typescript-eslint": "^8.71.1"
+    "oxlint": "^1.88.0",
+    "oxlint-tsgolint": "^7.0.2004"
   },
   "peerDependenciesMeta": {
-    "@eslint/js": {
-      "optional": true
-    },
     "@playwright/test": {
       "optional": true
     },
@@ -146,26 +140,25 @@
     "esbuild": {
       "optional": true
     },
-    "eslint": {
-      "optional": true
-    },
     "lefthook": {
       "optional": true
     },
-    "typescript-eslint": {
+    "oxlint": {
+      "optional": true
+    },
+    "oxlint-tsgolint": {
       "optional": true
     }
   },
   "devDependencies": {
-    "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.64.0",
     "@types/node": "^26.6.4",
     "@types/react": "19.3.0",
     "cordis": "npm:@deepseek-ai/cordis@4.0.1",
     "esbuild": "^0.28.2",
-    "eslint": "^10.12.0",
     "lefthook": "^2.2.2",
-    "typescript": "~6.0.3",
-    "typescript-eslint": "^8.71.1"
+    "oxlint": "^1.88.0",
+    "oxlint-tsgolint": "^7.0.2004",
+    "typescript": "~7.0.2"
   }
 }

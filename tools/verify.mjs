@@ -3,8 +3,10 @@
 // plugin repo. One command for the human, the git hooks and CI: green here, green there.
 //
 //   format   biome format (format only; Biome's linter is off)
-//   lint     eslint . (the repo's eslint.config.js: `@tilr-dev/plugin/eslint`)
-//   types    tsc --noEmit, and -p tsconfig.test.json when there is one
+//   lint     oxlint --type-aware . (the repo's .oxlintrc.json: `@tilr-dev/plugin/oxlint`), then
+//            tools/disable-comments.mjs (a disable comment names its rules and a ` -- reason`)
+//   types    tsc --noEmit -p on tsconfig.src.json and tsconfig.test.json (the projects of the
+//            solution tsconfig.json)
 //   api      npm run api:check, when package.json has that script
 //   unit     npm run test:unit, when package.json has that script
 //   dupes    jscpd
@@ -22,15 +24,16 @@
 // The first failing step stops the run (exit 1). A step whose script the repo does not have is
 // skipped. Configs: the repo's own (.jscpd.json, knip.json, commitlint.config.js), else this
 // package's presets/; biome.json the repo must have (it extends `@tilr-dev/plugin/biome`). Biome, jscpd, knip and commitlint are this package's
-// dependencies; eslint and typescript are the repo's (peers). A tool that npm cannot install
+// dependencies; oxlint, oxlint-tsgolint and typescript are the repo's (peers). A tool that npm cannot install
 // (gitleaks) fails the step on CI ($CI set) and is a warning elsewhere.
 //
 // Hooks (lefthook.yml, presets/lefthook.yml):
-//   hook pre-commit <files…>  biome format and eslint on the staged files, gitleaks on the staged diff
+//   hook pre-commit <files…>  biome format and oxlint (+ disable comments) on the staged files,
+//                             gitleaks on the staged diff
 //   hook commit-msg <file>    commitlint (Conventional Commits, no AI attribution)
 import { spawnSync } from 'node:child_process'
 import { accessSync, constants, existsSync, readFileSync } from 'node:fs'
-import { delimiter, dirname, join, resolve } from 'node:path'
+import { basename, delimiter, dirname, join, resolve } from 'node:path'
 import { performance } from 'node:perf_hooks'
 import { fileURLToPath } from 'node:url'
 
@@ -45,6 +48,10 @@ export const RUNTIME_STEPS = ['api', 'e2e', 'pack']
 const NO_RUNTIME = 'needs core page (web), --no-runtime'
 
 const BIOME_CONFIGS = ['biome.json', 'biome.jsonc']
+/** The configs oxlint finds in a repo's root by itself (oxlint 1.x). */
+const OXLINT_CONFIGS = ['.oxlintrc.json', '.oxlintrc.jsonc', 'oxlint.config.ts', 'oxlint.config.mts']
+/** The configs of ESLint, which oxlint does not read. */
+const ESLINT_CONFIGS = ['eslint.config.js', 'eslint.config.mjs', 'eslint.config.cjs', 'eslint.config.ts']
 const JSCPD_CONFIGS = ['.jscpd.json']
 const KNIP_CONFIGS = [
   'knip.json',
@@ -64,7 +71,7 @@ const COMMITLINT_CONFIGS = [
   '.commitlintrc.json',
   '.commitlintrc.yml',
 ]
-/** What eslint lints of the staged files. */
+/** What oxlint lints of the staged files. */
 const LINTED = /\.(c|m)?[jt]sx?$/
 const SECONDS = 1000
 /** The width of a step's name in the summary. */
@@ -146,19 +153,53 @@ function biome(args, root) {
   return node('@biomejs/biome', 'biome', ['format', ...args], root)
 }
 
-/** typescript's tsc on tsconfig.json and, when there is one, tsconfig.test.json. */
+/** The projects `types` checks: the solution tsconfig.json only points at them (`tsc -p` on it
+ *  checks nothing), and tsgolint finds each file's project through it. */
+export const TS_PROJECTS = ['tsconfig.src.json', 'tsconfig.test.json']
+
+/** typescript's tsc on each of TS_PROJECTS the repo has. */
 function types(root) {
+  if (!existsSync(join(root, 'tsconfig.json'))) return { skip: 'no tsconfig.json' }
+  const projects = TS_PROJECTS.filter(name => existsSync(join(root, name)))
+  if (!projects.length) {
+    return {
+      missing:
+        'no tsconfig.src.json: tsconfig.json is { "files": [], "references": [{ "path": "./tsconfig.src.json" }, ' +
+        '{ "path": "./tsconfig.test.json" }] } (docs/plugin-sdk.md)',
+    }
+  }
   const tsc = packageBin('typescript', 'tsc', [root, KIT])
   if (!tsc) return { missing: `typescript is not installed (npm install in ${root})` }
-  const projects = ['tsconfig.json', 'tsconfig.test.json'].filter(name => existsSync(join(root, name)))
-  if (!projects.length) return { skip: 'no tsconfig.json' }
   return { cmds: projects.map(project => [process.execPath, [tsc, '--noEmit', '-p', project]]) }
+}
+
+/** The disable-comment check (tools/disable-comments.mjs) of `paths`, all the linted files with none. */
+const DISABLE_COMMENTS = join(KIT, 'tools', 'disable-comments.mjs')
+
+/** Why the repo has no oxlint config: without one oxlint lints with its defaults and passes
+ *  what the preset would fail. */
+function noOxlintConfig(root) {
+  const eslint = firstFile(root, ESLINT_CONFIGS)
+  const extend = 'with { "extends": ["./node_modules/@tilr-dev/plugin/presets/oxlint.json"] }'
+  if (eslint) {
+    return `no .oxlintrc.json, and oxlint does not read ${basename(eslint)}: replace it with a .oxlintrc.json ${extend} (README)`
+  }
+  return `no .oxlintrc.json: add one ${extend} (README)`
+}
+
+/** oxlint (type-aware) with `args`, then the disable-comment check of `paths`; the repo's oxlint
+ *  config is required. */
+function lint(args, paths, root) {
+  if (!firstFile(root, OXLINT_CONFIGS)) return { missing: noOxlintConfig(root) }
+  const oxlint = node('oxlint', 'oxlint', ['--type-aware', ...args, ...paths], root)
+  if (!oxlint.cmds) return oxlint
+  return { cmds: [...oxlint.cmds, [process.execPath, [DISABLE_COMMENTS, ...paths]]] }
 }
 
 /** What each step runs, from the repo's folder, its env and its package.json. */
 const PLANS = {
   format: ({ root }) => biome(['.'], root),
-  lint: ({ root }) => node('eslint', 'eslint', ['.'], root),
+  lint: ({ root }) => lint([], ['.'], root),
   types: ({ root }) => types(root),
   api: ({ pkg }) => script(pkg, 'api:check'),
   unit: ({ pkg }) => script(pkg, 'test:unit'),
@@ -265,7 +306,7 @@ function preCommit(files, { root, env }) {
     planned.push(['format', biome(['--no-errors-on-unmatched', '--files-ignore-unknown=true', ...files], root)])
   }
   const linted = files.filter(file => LINTED.test(file))
-  if (linted.length) planned.push(['lint', node('eslint', 'eslint', ['--no-warn-ignored', ...linted], root)])
+  if (linted.length) planned.push(['lint', lint(['--no-error-on-unmatched-pattern'], linted, root)])
   planned.push(['secrets', gitleaks(['git', '--pre-commit', '--staged', '.'], env)])
   return planned
 }

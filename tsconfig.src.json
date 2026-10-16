@@ -1,0 +1,8 @@
+{
+  // tsconfig.json's first project, type-check only (`npm run check`): the SDK's own declarations
+  // (tools/*.d.ts, *.d.mts) and the API snapshot (api/, through tsconfig.base.json's `paths`). The
+  // tools' JS runs in Node and is not type-checked; test/harness.ts has Node's types and is
+  // tsconfig.test.json's.
+  "extends": "./tsconfig.base.json",
+  "include": ["tools"]
+}
