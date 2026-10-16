@@ -227,8 +227,9 @@ if site/ is missing (a `file:`-linked SDK that was never built).
   TypeScript release: keep `typescript`, `oxlint` and `oxlint-tsgolint` moving together. An
   unused disable comment is an error (`reportUnusedDisableDirectives`). `extends` does not carry
   `ignorePatterns`: the repo's `.oxlintrc.json` lists its own (`node_modules/`, `dist/`,
-  `test-results/`, `playwright-report/`, …). `tilr-plugin verify` runs oxlint, not a script: the
-  knip preset counts `oxlint` and `oxlint-tsgolint` as used (a repo's own knip.json says so too).
+  `test-results/`, `playwright-report/`, …). `tilr-plugin verify` runs oxlint, not a script; knip
+  still counts `oxlint` and `oxlint-tsgolint` as used, as peers of `@tilr-dev/plugin` (only the
+  SDK's own knip.json, which declares them, lists them in `ignoreDependencies`).
 - **Disable comments** — `// oxlint-disable-next-line rule -- why`: a disable comment (`oxlint-`
   or `eslint-disable`, `-line`, `-next-line`, line or block) names its rules and gives a reason
   after ` -- `. A range `/* oxlint-disable rule -- why */` needs a later `/* oxlint-enable rule */`:

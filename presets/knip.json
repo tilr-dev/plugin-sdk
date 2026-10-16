@@ -7,6 +7,5 @@
     "test/**/*.{ts,mjs}"
   ],
   "project": ["src/**/*.{ts,tsx,js,mjs}", "test/**/*.{ts,tsx,mjs}", "*.{js,mjs,ts}"],
-  "ignoreDependencies": ["oxlint", "oxlint-tsgolint"],
   "ignoreExportsUsedInFile": true
 }

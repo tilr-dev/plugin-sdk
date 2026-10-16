@@ -334,7 +334,9 @@ every pull request and push to master (everything, with the unit tests that need
 `verify:full` for plugin repos (`uses: tilr-dev/plugin-sdk/.github/workflows/plugin.yml@v0`,
 input `node-version`; the SDK comes from npm with `site/` in it); `release.yml` is
 release-please and the npm publish of each release (Releasing). Workflows have minimal
-`permissions`, no `pull_request_target`, and actions pinned by commit SHA (Renovate updates them).
+`permissions`, no `pull_request_target`, and actions pinned by commit SHA. Dependabot
+(`.github/dependabot.yml`) updates the actions and the npm dependencies weekly, `typescript`,
+`oxlint` and `oxlint-tsgolint` in one group of their own.
 
 Contributing: read [AGENTS.md](AGENTS.md). Short branches, Conventional Commits, PRs
 squash-merged into a green `master`; `npm run verify` before every commit.
