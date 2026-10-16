@@ -283,19 +283,21 @@ were.
 ### Releasing
 
 release-please (`.github/workflows/release.yml`) keeps a release PR open from the Conventional
-Commits on master (version bump in package.json and the manifest, CHANGELOG entry; while 0.x
+Commits on main (version bump in package.json and the manifest, CHANGELOG entry; while 0.x
 `feat` and breaking changes bump the minor, `fix` the patch). It bumps only `version`, never
 `tilrApi` (Versions). Merging it tags `vX.Y.Z` and creates the GitHub release; then the
 `publish` job of the same workflow checks out the tag, runs `verify --full --skip api` and
-`npm publish --provenance --access public`, once its run is approved in the `npm` environment.
+`npm publish --provenance --access public`. The `npm` environment only admits `main` and has no
+required reviewer: merging the release PR is the approval.
 
 Publishing uses npm trusted publishing (OIDC: no token; provenance links the tarball to the
 run). npm's trusted publisher for the package is bound to repository `tilr-dev/plugin-sdk`,
 workflow file `release.yml`, environment `npm`. It needs no web checkout: `site/` is committed,
 and `api:check` (web's sources) is run locally whenever `api/` or `site/` is synced.
 
-The release PR is opened by the GitHub Actions token, so CI does not run on it: merge it past
-the required checks (its only changes are the version and the CHANGELOG).
+The release-please job acts as the org GitHub App `tilr-bot` (a short-lived installation token,
+`TILR_BOT_CLIENT_ID` / `TILR_BOT_PRIVATE_KEY`), so the release PR is opened by tilr-bot and CI
+runs on it like on any other PR: it is merged through the same required checks, with no bypass.
 
 ## Checks & contributing
 
@@ -329,7 +331,7 @@ staged files and runs gitleaks on the staged diff; **commit-msg** runs commitlin
 attribution lines); **pre-push** runs `npm run verify`.
 
 CI (`.github/workflows/`): `ci.yml` runs `verify --full --skip api` on Node 22 and 24 on
-every pull request and push to master (everything, with the unit tests that need `site/` and
+every pull request and push to main (everything, with the unit tests that need `site/` and
 `npm pack --dry-run`, but `api:check`, which needs web's sources); `plugin.yml` is
 `verify:full` for plugin repos (`uses: tilr-dev/plugin-sdk/.github/workflows/plugin.yml@v0`,
 input `node-version`; the SDK comes from npm with `site/` in it); `release.yml` is
@@ -339,7 +341,7 @@ release-please and the npm publish of each release (Releasing). Workflows have m
 `oxlint` and `oxlint-tsgolint` in one group of their own.
 
 Contributing: read [AGENTS.md](AGENTS.md). Short branches, Conventional Commits, PRs
-squash-merged into a green `master`; `npm run verify` before every commit.
+squash-merged into a green `main`; `npm run verify` before every commit.
 
 ## License
 

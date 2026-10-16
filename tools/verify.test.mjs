@@ -188,7 +188,7 @@ describe('the plan', () => {
   })
 
   test('gitleaks: on PATH or $GITLEAKS; missing, it fails on CI and warns elsewhere', () => {
-    const git = fixture({}, { '.git/HEAD': 'ref: refs/heads/master\n' })
+    const git = fixture({}, { '.git/HEAD': 'ref: refs/heads/main\n' })
     const found = step('secrets', { root: git, env: fakeBin('gitleaks') }).cmds[0]
     assert.match(found[0], /gitleaks$/)
     assert.deepEqual(found[1], ['git', '.', '--redact', '--no-banner'])

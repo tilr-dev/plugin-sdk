@@ -21,7 +21,7 @@ you commit is published. README.md says what is where; docs/ has the details.
 - **No AI attribution**: no "Generated with …" lines, no agent `Co-Authored-By`. commitlint
   rejects them.
 - Small commits, one logical change each. Work in short branches (`feat/12-short-name`), PRs are
-  squash-merged into `master`, which stays green and releasable. Releases are release-please's.
+  squash-merged into `main`, which stays green and releasable. Releases are release-please's.
 
 ## Code
 
