@@ -1,10 +1,8 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "entry": [
-    "src/index.{ts,tsx}",
-    "src/api.ts",
-    "build.mjs",
-    "commitlint.config.js",
+    "src/{index,api}.{ts,tsx}",
+    "{build.mjs,commitlint.config.js}",
     "src/**/*.test.{ts,tsx}",
     "test/**/*.{ts,mjs}"
   ],
