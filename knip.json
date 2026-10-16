@@ -3,6 +3,6 @@
   "entry": ["scripts/*.mjs", "presets/*.js", "tools/*.test.mjs"],
   "project": ["**/*.{js,mjs,ts,mts}"],
   "ignore": ["api/**", "dist/**", "site/**"],
-  "ignoreDependencies": ["@commitlint/cli", "jscpd"],
+  "ignoreDependencies": ["@commitlint/cli", "jscpd", "oxlint", "oxlint-tsgolint"],
   "ignoreExportsUsedInFile": true
 }

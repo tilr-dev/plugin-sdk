@@ -144,13 +144,24 @@ describe('the plan', () => {
     assert.deepEqual(args(step('unused', { root: fixture({ knip: {} }) }).cmds[0]), ['--no-progress'])
   })
 
-  test('types: tsc on tsconfig.json and tsconfig.test.json when they exist', () => {
-    assert.ok(step('types', { root: fixture() }).skip)
-    const root = fixture({}, { 'tsconfig.json': '{}', 'tsconfig.test.json': '{}' })
-    assert.deepEqual(step('types', { root }).cmds.map(args), [
-      ['--noEmit', '-p', 'tsconfig.json'],
+  test("types: tsc on the solution tsconfig.json's projects, tsconfig.src.json and tsconfig.test.json", () => {
+    assert.match(step('types', { root: fixture() }).skip, /no tsconfig\.json/)
+    // The old single tsconfig.json: tsgolint would lint the tests with the sources' types.
+    assert.match(step('types', { root: fixture({}, { 'tsconfig.json': '{}' }) }).missing, /no tsconfig\.src\.json/)
+    const files = { 'tsconfig.json': '{}', 'tsconfig.src.json': '{}', 'tsconfig.test.json': '{}' }
+    assert.deepEqual(step('types', { root: fixture({}, files) }).cmds.map(args), [
+      ['--noEmit', '-p', 'tsconfig.src.json'],
       ['--noEmit', '-p', 'tsconfig.test.json'],
     ])
+    const sourcesOnly = fixture({}, { 'tsconfig.json': '{}', 'tsconfig.src.json': '{}' })
+    assert.deepEqual(step('types', { root: sourcesOnly }).cmds.map(args), [['--noEmit', '-p', 'tsconfig.src.json']])
+  })
+
+  test('lint: oxlint, type-aware, then the disable-comment check of the same files', () => {
+    const [oxlint, comments] = step('lint', { root: fixture() }).cmds
+    assert.match(oxlint[1][0], /node_modules\/oxlint\/bin\/oxlint$/)
+    assert.deepEqual(args(oxlint), ['--type-aware', '.'])
+    assert.deepEqual(comments, [process.execPath, [join(KIT, 'tools', 'disable-comments.mjs'), '.']])
   })
 
   test('the tools resolve from the repo first, then from this package', () => {
@@ -235,8 +246,10 @@ describe('hooks', () => {
       'README.md',
       'b.mjs',
     ])
-    assert.deepEqual(args(r.ran[1]), ['--no-warn-ignored', 'src/a.ts', 'b.mjs'])
-    assert.deepEqual(r.ran[2][1], ['git', '--pre-commit', '--staged', '.', '--redact', '--no-banner'])
+    assert.deepEqual(args(r.ran[1]), ['--type-aware', '--no-error-on-unmatched-pattern', 'src/a.ts', 'b.mjs'])
+    assert.deepEqual(args(r.ran[2]), ['src/a.ts', 'b.mjs'])
+    assert.match(r.ran[2][1][0], /disable-comments\.mjs$/)
+    assert.deepEqual(r.ran[3][1], ['git', '--pre-commit', '--staged', '.', '--redact', '--no-banner'])
   })
 
   test('pre-commit stops at the first failure', () => {

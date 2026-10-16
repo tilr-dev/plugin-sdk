@@ -3,15 +3,15 @@
 > **Status: implemented (stage 1, `@tilr-dev/plugin` 0.1.14).** What was built, and how to use it:
 > [plugin-sdk.md](plugin-sdk.md). The pieces: `@tilr-dev/plugin/build` (`tools/build-plugin.mjs`),
 > `@tilr-dev/plugin/playwright` and `/test/global-setup` (`tools/playwright.mjs`,
-> `tools/global-setup.mjs`), `tsconfig.plugin.json` / `tsconfig.plugin-test.json`, `withRoot()`
-> in `@tilr-dev/plugin/eslint`, the `tilr-plugin` bin (`tools/tilr-plugin.mjs`), and the runtime
+> `tools/global-setup.mjs`), `tsconfig.plugin.json` / `tsconfig.plugin-test.json`, the oxlint
+> preset `@tilr-dev/plugin/oxlint`, the `tilr-plugin` bin (`tools/tilr-plugin.mjs`), and the runtime
 > helpers `frame()` / `element()` (`tilr/ui`), `onLayout()` / `optional()` (`tilr`),
 > `connectNative()` (`tilr/native`). Not done yet: the multi-repository verification runner and
 > the versioned core fixture (steps 5 below); the plugins' migration (steps 2-4) is stage 3.
 > The text below is the proposal as written.
 
 Extend the existing `@tilr-dev/plugin` package with shared build and verification tooling.
-The package already supplies API types, TypeScript and ESLint configuration, the installer
+The package already supplies API types, TypeScript and lint configuration, the installer
 and the test harness. The next step is to move repeated build/watch/asset logic out of
 individual plugins while retaining their independent repositories.
 

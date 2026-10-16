@@ -9,7 +9,8 @@
 pre-commit:
   commands:
     staged:
-      # biome format + eslint on the staged files, gitleaks on the staged diff: seconds.
+      # biome format + oxlint (and the disable-comment check) on the staged files, gitleaks on the
+      # staged diff: seconds.
       run: npx --no -- tilr-plugin hook pre-commit {staged_files}
 
 commit-msg:

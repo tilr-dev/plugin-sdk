@@ -1,6 +1,7 @@
 {
-  // The harness (test/harness.ts) runs in Node: Node's types. Built by tsconfig.harness.json.
-  "extends": "./tsconfig.json",
+  // The harness (test/harness.ts) runs in Node: Node's types. Built by tsconfig.harness.json;
+  // tsconfig.json's second project, so tsgolint lints test/ with these types.
+  "extends": "./tsconfig.src.json",
   "compilerOptions": { "types": ["node"], "allowImportingTsExtensions": true },
   "include": ["test"],
   "exclude": []

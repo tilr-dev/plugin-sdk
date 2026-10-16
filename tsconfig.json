@@ -1,7 +1,9 @@
 {
-  // Type-check only (`npm run check`): the SDK's own declarations (tools/*.d.ts, *.d.mts) and the
-  // API snapshot (api/, through tsconfig.base.json's `paths`). The tools' JS runs in Node and is
-  // not type-checked; test/harness.ts has Node's types and is tsconfig.test.json's.
-  "extends": "./tsconfig.base.json",
-  "include": ["tools"]
+  // The solution layout every plugin repo has too: this file only points at the projects, so
+  // tsgolint (oxlint's type-aware rules) and the editor give each file the project it belongs to.
+  // `tilr-plugin verify` type-checks the projects themselves (`tsc --noEmit -p`).
+  // - tsconfig.src.json: the SDK's own declarations (tools/) and the API snapshot (api/)
+  // - tsconfig.test.json: the e2e harness (test/), with Node's types
+  "files": [],
+  "references": [{ "path": "./tsconfig.src.json" }, { "path": "./tsconfig.test.json" }]
 }

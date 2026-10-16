@@ -17,9 +17,10 @@ package.json and `const NAME` in `src/index.ts`; `init` sets both.
 package.json          name, version, tilr.name, the scripts below, dev dependencies
 build.mjs             optional: import { buildPlugin } from '@tilr-dev/plugin/build'; await buildPlugin({ … })
 playwright.config.ts  export { default } from '@tilr-dev/plugin/playwright'
-tsconfig.json         { "extends": "@tilr-dev/plugin/tsconfig.plugin.json", "include": ["src"] }
+tsconfig.json         { "files": [], "references": [{ "path": "./tsconfig.src.json" }, { "path": "./tsconfig.test.json" }] }
+tsconfig.src.json     { "extends": "@tilr-dev/plugin/tsconfig.plugin.json", "include": ["src"] }
 tsconfig.test.json    { "extends": "@tilr-dev/plugin/tsconfig.plugin-test.json" }
-eslint.config.js      import { withRoot } from '@tilr-dev/plugin/eslint'; export default withRoot(import.meta.dirname)
+.oxlintrc.json        { "extends": ["./node_modules/@tilr-dev/plugin/presets/oxlint.json"], "ignorePatterns": [ … ] }
 src/index.ts(x)       the plugin
 src/api.ts            optional: the service's types → dist/api.d.ts
 test/*.spec.ts        e2e on the harness (@tilr-dev/plugin/test)
@@ -42,21 +43,20 @@ SDK has both):
     "dev": "tilr-plugin build --watch",
     "dev:site": "tilr-plugin dev",
     "install:site": "tilr-plugin build --install",
-    "check": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json && eslint .",
+    "check": "tilr-plugin verify --only lint,types",
     "test": "npm run test:unit && npm run test:e2e",
     "test:unit": "node --test 'src/**/*.test.ts'",
     "test:e2e": "playwright test"
   },
   "devDependencies": {
     "@tilr-dev/plugin": "file:../../web",
-    "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.64.0",
     "@types/node": "^26.6.4",
     "cordis": "npm:@deepseek-ai/cordis@4.0.1",
     "esbuild": "^0.28.2",
-    "eslint": "^10.12.0",
-    "typescript": "~6.0.3",
-    "typescript-eslint": "^8.71.1"
+    "oxlint": "^1.88.0",
+    "oxlint-tsgolint": "^7.0.2004",
+    "typescript": "~7.0.2"
   }
 }
 ```
@@ -210,11 +210,30 @@ if site/ is missing (a `file:`-linked SDK that was never built).
   cordis. `include: src`, unit tests excluded. `.ts` and `.tsx` alike. `tsconfig.plugin-test.json`
   adds Node's types and `allowImportingTsExtensions` for `src/**/*.test.ts(x)`, `test/` and
   `playwright.config.ts`. A plugin with extra `paths` repeats the SDK's in its own tsconfig
-  (`paths` replaces, it does not merge).
-- **ESLint** — `withRoot(import.meta.dirname)` from `@tilr-dev/plugin/eslint`: the shared rules (no
-  `any`, no `!`, no `@ts-ignore` without a reason, no floating promises, explicit module
-  boundary types, type-only imports) with the repo's tsconfigs, for `.ts` and `.tsx`. The
-  default export is the same array without a root.
+  (`paths` replaces, it does not merge). The repo's tsconfig.json is a solution,
+  `{ "files": [], "references": [tsconfig.src.json, tsconfig.test.json] }` (tsconfig.src.json
+  extends `tsconfig.plugin.json`, tsconfig.test.json `tsconfig.plugin-test.json`): tsgolint and
+  the editor take each file's project from it, so a test is linted with Node's types and a
+  source file without them. `tsc -p tsconfig.json` checks nothing; verify's `types` step runs
+  `tsc --noEmit -p` on tsconfig.src.json and tsconfig.test.json.
+- **oxlint** — `presets/oxlint.json` (`@tilr-dev/plugin/oxlint`), extended by path from the
+  repo's `.oxlintrc.json` (oxlint's `extends` takes files, not package names):
+  `"extends": ["./node_modules/@tilr-dev/plugin/presets/oxlint.json"]`. The shared rules (no
+  `any`, no `!`, no `@ts-ignore` without a reason, no floating or misused promises, explicit
+  module boundary types, type-only imports; complexity ≤ 15, depth ≤ 4, params ≤ 4; warnings for
+  file length and magic numbers; no `console` in `src/` outside the tests) and nothing else:
+  `categories.correctness` is off, so oxlint's defaults do not add to them. Type-aware rules run
+  through `oxlint-tsgolint` (`--type-aware`, `options.typeAware`), which is built on one
+  TypeScript release: keep `typescript`, `oxlint` and `oxlint-tsgolint` moving together. An
+  unused disable comment is an error (`reportUnusedDisableDirectives`). `extends` does not carry
+  `ignorePatterns`: the repo's `.oxlintrc.json` lists its own (`node_modules/`, `dist/`,
+  `test-results/`, `playwright-report/`, …). `tilr-plugin verify` runs oxlint, not a script: the
+  knip preset counts `oxlint` and `oxlint-tsgolint` as used (a repo's own knip.json says so too).
+- **Disable comments** — `// oxlint-disable-next-line rule -- why`: a disable comment (`oxlint-`
+  or `eslint-disable`, `-line`, `-next-line`, line or block) names its rules and gives a reason
+  after ` -- `. oxlint has no rule for that; the lint step runs `tools/disable-comments.mjs` after
+  oxlint, on the files oxlint lints (all of them, or the staged ones in the pre-commit hook), and
+  fails with `file:line: oxlint-disable-next-line without a reason: …`.
 
 ## Runtime helpers
 

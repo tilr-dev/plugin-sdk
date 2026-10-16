@@ -100,7 +100,7 @@ remaining migrations; not every isolation gate is enforced today.
   drafts, correct write destinations, continued frames and recovered connections.
 - Cover multiple consumers, reload, disposal, missing optional providers, external changes
   and delayed responses when those scenarios affect the change.
-- Run TypeScript and ESLint, the applicable unit tests, a build and relevant E2E tests.
+- Run TypeScript and oxlint (`npm run check`), the applicable unit tests, a build and relevant E2E tests.
   Build local providers and the core before integration tests that consume their output.
 - Verify native-only behavior in the app. An iframe test does not validate native proxy
   routing or cookie isolation. Report test-environment failures separately from assertions.

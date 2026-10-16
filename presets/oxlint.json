@@ -1,0 +1,214 @@
+{
+  "plugins": ["eslint", "typescript"],
+  "categories": {
+    "correctness": "off"
+  },
+  "options": {
+    "typeAware": true,
+    "reportUnusedDisableDirectives": "error"
+  },
+  "rules": {
+    "eslint/for-direction": "error",
+    "eslint/no-async-promise-executor": "error",
+    "eslint/no-case-declarations": "error",
+    "eslint/no-compare-neg-zero": "error",
+    "eslint/no-cond-assign": "error",
+    "eslint/no-constant-binary-expression": "error",
+    "eslint/no-constant-condition": "error",
+    "eslint/no-control-regex": "error",
+    "eslint/no-debugger": "error",
+    "eslint/no-delete-var": "error",
+    "eslint/no-dupe-else-if": "error",
+    "eslint/no-duplicate-case": "error",
+    "eslint/no-empty-character-class": "error",
+    "eslint/no-empty-pattern": "error",
+    "eslint/no-empty-static-block": "error",
+    "eslint/no-ex-assign": "error",
+    "eslint/no-extra-boolean-cast": "error",
+    "eslint/no-fallthrough": "error",
+    "eslint/no-global-assign": "error",
+    "eslint/no-invalid-regexp": "error",
+    "eslint/no-irregular-whitespace": "error",
+    "eslint/no-loss-of-precision": "error",
+    "eslint/no-misleading-character-class": "error",
+    "eslint/no-nonoctal-decimal-escape": "error",
+    "eslint/no-prototype-builtins": "error",
+    "eslint/no-regex-spaces": "error",
+    "eslint/no-self-assign": "error",
+    "eslint/no-shadow-restricted-names": "error",
+    "eslint/no-sparse-arrays": "error",
+    "eslint/no-unassigned-vars": "error",
+    "eslint/no-unexpected-multiline": "error",
+    "eslint/no-unsafe-finally": "error",
+    "eslint/no-unsafe-optional-chaining": "error",
+    "eslint/no-unused-labels": "error",
+    "eslint/no-unused-private-class-members": "error",
+    "eslint/no-useless-assignment": "error",
+    "eslint/no-useless-backreference": "error",
+    "eslint/no-useless-catch": "error",
+    "eslint/no-useless-escape": "error",
+    "eslint/preserve-caught-error": "error",
+    "eslint/require-yield": "error",
+    "eslint/use-isnan": "error",
+    "eslint/valid-typeof": "error",
+    "eslint/no-array-constructor": "error",
+    "eslint/no-unused-vars": "error",
+    "eslint/no-var": "error",
+    "eslint/prefer-const": "error",
+    "eslint/prefer-rest-params": "error",
+    "eslint/prefer-spread": "error",
+    "typescript/ban-ts-comment": [
+      "error",
+      {
+        "ts-ignore": "allow-with-description",
+        "ts-expect-error": "allow-with-description",
+        "ts-nocheck": true,
+        "minimumDescriptionLength": 10
+      }
+    ],
+    "typescript/no-duplicate-enum-values": "error",
+    "typescript/no-empty-object-type": "error",
+    "typescript/no-explicit-any": "error",
+    "typescript/no-extra-non-null-assertion": "error",
+    "typescript/no-misused-new": "error",
+    "typescript/no-namespace": "error",
+    "typescript/no-non-null-asserted-optional-chain": "error",
+    "typescript/no-require-imports": "error",
+    "typescript/no-this-alias": "error",
+    "typescript/no-unnecessary-type-constraint": "error",
+    "typescript/no-unsafe-declaration-merging": "error",
+    "typescript/no-unsafe-function-type": "error",
+    "typescript/no-wrapper-object-types": "error",
+    "typescript/prefer-as-const": "error",
+    "typescript/prefer-namespace-keyword": "error",
+    "typescript/triple-slash-reference": "error",
+    "eslint/complexity": ["error", 15],
+    "eslint/max-depth": ["error", 4],
+    "eslint/max-params": ["error", 4],
+    "eslint/max-lines": [
+      "warn",
+      {
+        "max": 400,
+        "skipBlankLines": true,
+        "skipComments": true
+      }
+    ],
+    "eslint/no-magic-numbers": [
+      "warn",
+      {
+        "ignore": [-1, 0, 1, 2],
+        "ignoreArrayIndexes": true,
+        "ignoreDefaultValues": true,
+        "ignoreClassFieldInitialValues": true,
+        "enforceConst": false,
+        "ignoreEnums": true,
+        "ignoreNumericLiteralTypes": true,
+        "ignoreReadonlyClassProperties": true,
+        "ignoreTypeIndexes": true
+      }
+    ],
+    "eslint/no-empty": [
+      "error",
+      {
+        "allowEmptyCatch": true
+      }
+    ],
+    "eslint/no-unused-expressions": [
+      "error",
+      {
+        "allowShortCircuit": true,
+        "allowTernary": true
+      }
+    ],
+    "typescript/no-non-null-assertion": "error",
+    "typescript/consistent-type-imports": "error",
+    "typescript/explicit-module-boundary-types": "error",
+    "typescript/no-floating-promises": "error",
+    "typescript/no-misused-promises": "error"
+  },
+  "overrides": [
+    {
+      "files": ["**/*.js", "**/*.mjs", "**/*.cjs"],
+      "rules": {
+        "eslint/constructor-super": "error",
+        "eslint/getter-return": "error",
+        "eslint/no-class-assign": "error",
+        "eslint/no-const-assign": "error",
+        "eslint/no-dupe-class-members": "error",
+        "eslint/no-dupe-keys": "error",
+        "eslint/no-func-assign": "error",
+        "eslint/no-import-assign": "error",
+        "eslint/no-new-native-nonconstructor": "error",
+        "eslint/no-obj-calls": "error",
+        "eslint/no-redeclare": "error",
+        "eslint/no-setter-return": "error",
+        "eslint/no-this-before-super": "error",
+        "eslint/no-undef": "error",
+        "eslint/no-unreachable": "error",
+        "eslint/no-unsafe-negation": "error",
+        "eslint/no-with": "error",
+        "typescript/explicit-module-boundary-types": "off",
+        "typescript/consistent-type-imports": "off",
+        "typescript/no-floating-promises": "off",
+        "typescript/no-misused-promises": "off",
+        "typescript/no-non-null-assertion": "off",
+        "eslint/no-magic-numbers": [
+          "warn",
+          {
+            "ignore": [-1, 0, 1, 2],
+            "ignoreArrayIndexes": true,
+            "ignoreDefaultValues": true,
+            "ignoreClassFieldInitialValues": true,
+            "enforceConst": false
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.js", "src/**/*.mjs"],
+      "rules": {
+        "eslint/no-console": "error"
+      }
+    },
+    {
+      "files": ["src/**/*.test.ts", "src/**/*.test.tsx", "test/**/*.ts", "playwright.config.ts"],
+      "rules": {
+        "eslint/no-console": "off",
+        "typescript/no-floating-promises": [
+          "error",
+          {
+            "allowForKnownSafeCalls": [
+              {
+                "from": "package",
+                "package": "node:test",
+                "name": ["test", "describe", "it"]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "src/**/*.test.ts",
+        "src/**/*.test.tsx",
+        "test/**/*.ts",
+        "playwright.config.ts",
+        "**/*.test.mjs",
+        "**/*.test.js",
+        "**/*.spec.ts",
+        "test/**/*.mjs"
+      ],
+      "rules": {
+        "eslint/max-lines": "off",
+        "eslint/no-magic-numbers": "off"
+      }
+    },
+    {
+      "files": ["*.js", "*.mjs", "scripts/**/*.mjs", "test/**/*.mjs", "tools/**/*.js", "tools/**/*.mjs"],
+      "env": {
+        "node": true
+      }
+    }
+  ]
+}

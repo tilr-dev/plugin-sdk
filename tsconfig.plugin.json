@@ -1,8 +1,10 @@
 {
-  // A plugin repo's tsconfig.json, shipped in @tilr-dev/plugin:
-  //   { "extends": "@tilr-dev/plugin/tsconfig.plugin.json" }
-  // (an `include` of its own is fine too: `"include": ["src"]`). tsconfig.base.json's settings,
-  // plus what every plugin repo repeated:
+  // A plugin repo's tsconfig.src.json, shipped in @tilr-dev/plugin:
+  //   { "extends": "@tilr-dev/plugin/tsconfig.plugin.json", "include": ["src"] }
+  // The repo's tsconfig.json is the solution that only points at its projects, so tsgolint
+  // (oxlint's type-aware rules) lints each file with the project it belongs to:
+  //   { "files": [], "references": [{ "path": "./tsconfig.src.json" }, { "path": "./tsconfig.test.json" }] }
+  // tsconfig.base.json's settings, plus what every plugin repo repeated:
   // - `paths`: 'tilr', 'tilr/react', 'tilr/ui', 'tilr/native' → this package's api/ (relative to
   //   this file: wherever the package is installed or linked), and 'cordis' → the plugin's own
   //   node_modules/cordis (${configDir}: the folder of the plugin's tsconfig). One cordis for the

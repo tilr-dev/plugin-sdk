@@ -374,7 +374,7 @@ async function move(from, to) {
 
 /** One build of the plugin at `root` into a temp folder, swapped into dist/ when complete.
  *  Resolves to the dist paths written, or null when it failed (dist/ untouched). */
-// eslint-disable-next-line complexity -- the build sequence (bundle or transform, api.d.ts, assets, copy, hooks, atomic swap) kept in one place so the swap is visibly last
+// oxlint-disable-next-line complexity -- the build sequence (bundle or transform, api.d.ts, assets, copy, hooks, atomic swap) kept in one place so the swap is visibly last
 async function buildOnce(options, root, state) {
   const started = Date.now()
   const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'))

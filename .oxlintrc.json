@@ -1,0 +1,7 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  // The SDK lints itself with the preset it ships to plugin repos (`@tilr-dev/plugin/oxlint`).
+  // `extends` takes rules, options and overrides, not ignorePatterns: every repo lists its own.
+  "extends": ["./presets/oxlint.json"],
+  "ignorePatterns": ["node_modules/", "site/", "api/", "dist/", "test-results/", "playwright-report/"]
+}

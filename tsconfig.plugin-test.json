@@ -3,8 +3,9 @@
   //   { "extends": "@tilr-dev/plugin/tsconfig.plugin-test.json" }
   // The tests run in Node (node --test, Playwright): Node's types, which tsconfig.plugin.json
   // keeps out of the plugin, and imports by the real file name ('./lib.ts'), which Node loads
-  // itself. The plugin's sources come in through the tests' imports. The lint preset
-  // (@tilr-dev/plugin/eslint) checks tests with ./tsconfig.test.json: keep that name.
+  // itself. The plugin's sources come in through the tests' imports. The second project of the
+  // repo's solution tsconfig.json (see tsconfig.plugin.json): tsgolint lints the tests with it,
+  // and `tilr-plugin verify` type-checks tsconfig.src.json and tsconfig.test.json: keep the names.
   "extends": "./tsconfig.plugin.json",
   "compilerOptions": { "types": ["node"], "allowImportingTsExtensions": true },
   "include": [
