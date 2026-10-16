@@ -10,7 +10,8 @@ root context plus hot-reloadable plugins; a plugin is one `index.js` the page lo
 - the **e2e harness** (`@tilr-dev/plugin/test`) and the **built core page** it serves (`site/`),
 - the **shared configs**: tsconfig, eslint, Playwright, and the repo standard's checks
   (`tilr-plugin verify`) with their presets: Biome (format), lefthook (git hooks), commitlint,
-  jscpd, knip; plus `templates/plugin/`, the files every plugin repo has.
+  jscpd, knip; and `tilr-plugin init`, which fills a copy of the
+  [template repo](https://github.com/tilr-dev/plugin-template) in as a new plugin.
 
 The page itself (the runtime and the built-in plugins) lives in the core repo, `web/`; this
 package carries a built copy of it (see Keeping api/ and site/ in sync). Docs:
@@ -22,7 +23,7 @@ design it implements), [CHANGELOG.md](CHANGELOG.md).
 
 Node >= 22.18.
 
-**A new plugin:** start from `templates/plugin/` (see A plugin repo below); its package.json
+**A new plugin:** start from the template repo (see A plugin repo below); its package.json
 already lists every dev dependency, so `npm install` is all it takes.
 
 **An existing project:** pick what you need.
@@ -50,7 +51,16 @@ upstream one, without a 4.0.1).
 
 ## A plugin repo
 
-Start from the template (`templates/plugin/` in this package), not from another plugin. A repo that uses the
+Start from the template repo, [tilr-dev/plugin-template](https://github.com/tilr-dev/plugin-template),
+not from another plugin: "Use this template" on GitHub, or
+
+```sh
+gh repo create my-plugin --template tilr-dev/plugin-template --clone
+cd my-plugin
+npm install && npx tilr-plugin init my-plugin
+```
+
+`tilr-plugin init` fills the copy in as the plugin `my-plugin` (CLI below). A repo that uses the
 whole kit is its sources, its tests and one-line config files:
 
 ```text
@@ -87,9 +97,10 @@ src/**/*.test.ts      optional: unit tests (node --test)
 }
 ```
 
-`templates/plugin/` in this package has all of these (`gitignore` is `.gitignore`, npm does not
-pack that name; `package.fragment.json` is what to merge into package.json); a future
-`tilr-plugin init` will copy them. With lefthook as a dev dependency of the plugin repo.
+The template repo is the source of these files. `templates/plugin/` in this package is an older
+copy of the config files (`gitignore` is `.gitignore`, npm does not pack that name;
+`package.fragment.json` is what to merge into package.json), kept for now and to be removed. With
+lefthook as a dev dependency of the plugin repo.
 
 If a unit test imports the built `dist/index.js`, `test:unit` becomes `tilr-plugin build && node
 --import @tilr-dev/plugin/test/node --test 'src/**/*.test.ts'`: the hook resolves `'tilr'`,
@@ -156,14 +167,18 @@ export default definePlugin({
 | --- | --- |
 | `tilr-plugin build [--watch] [--install] [--site DIR]` | `node build.mjs …` when the repo has one, else `buildPlugin()` with the defaults |
 | `tilr-plugin dev [--site DIR]` | `build --watch --install`: rebuild on every save, install each good build |
+| `tilr-plugin init <name> [--force]` | in a fresh copy of the template repo: package.json (`name` `tilr-plugin-<name>`, `tilr.name`, `version` 0.1.0, `repository` / `homepage` / `bugs` from the git `origin`), `const NAME` in `src/index.ts(x)`, a stub README.md, AGENTS.md's "This repo" section; refuses a repo whose `tilr.name` is not the template's `hello` unless `--force` |
 | `tilr-plugin install-site [--site DIR]` | `dist/` → `plugins/<name>/` of the Tilr site, the name appended to `plugins.json` |
+| `tilr-plugin uninstall-site [--site DIR] [name]` | the reverse: `name` (default: the repo's `tilr.name`) out of `plugins.json`, then `plugins/<name>/` removed; nothing to remove is not an error |
 | `tilr-plugin verify [--full] [--skip a,b] [--only a,b]` | the repo standard's checks, in order, stopping at the first failure (Checks & contributing) |
 | `tilr-plugin hook pre-commit <files…>` / `hook commit-msg <file>` | what the git hooks run (`presets/lefthook.yml`) |
 
 The site is `--site DIR`, else `$TILR_SITE`, else `site:` in the app's `config.yml`, else
 `~/Library/Application Support/dev.tilr.mac/apps/default`. Installing replaces only the plugin's
 own folder, merges `plugins.json`, writes atomically and only what changed (the app hot-reloads
-it), and refuses a site without the core page.
+it), and refuses a site without the core page. Uninstalling edits `plugins.json` first (the page
+stops loading the plugin), then removes the folder; `uninstallSite({ site, names })` in
+`@tilr-dev/plugin/install` does the same from code.
 
 The app-control CLI and MCP server (`tilr ctl`, `tilr mcp`, app workspaces) and the bench and
 memory tools live outside the SDK; they will become a separate package.
@@ -207,11 +222,11 @@ simulate a change on disk. `tilr(page)` has `open`, `list`, `row`, `hmr`, `toggl
 ```text
 api/            the plugin API's declarations (committed; the contract)
 test/harness.ts the e2e harness → dist/test/ (npm run build)
-tools/          build-plugin, tilr-plugin, verify, install-site, paths, node-resolve, playwright,
-                global-setup; *.test.mjs are their unit tests
+tools/          build-plugin, tilr-plugin, init-plugin, verify, install-site, paths, node-resolve,
+                playwright, global-setup; *.test.mjs are their unit tests
 scripts/        sync-runtime.mjs (site/ from web), api-sync.mjs (api/ against web), prepare.mjs (git hooks)
 presets/        biome, lefthook, commitlint, jscpd, knip: shipped, and used by this repo too
-templates/      plugin/: the files every plugin repo has (shipped, for `tilr-plugin init`)
+templates/      plugin/: an older copy of a plugin repo's config files (the template repo is the source)
 .github/        ci.yml, release.yml (this repo), plugin.yml (the reusable CI of plugin repos)
 docs/           plugin-sdk.md, GUIDELINES.md, SDK.md
 site/           the core page, copied from web by `npm run sync:runtime` (committed, packed)

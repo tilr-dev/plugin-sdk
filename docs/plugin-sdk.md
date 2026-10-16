@@ -8,6 +8,11 @@ The proposal this implements is [SDK.md](SDK.md); the rules for plugins are
 
 ## A plugin repo
 
+Start from the template repo, [tilr-dev/plugin-template](https://github.com/tilr-dev/plugin-template)
+("Use this template", or `gh repo create my-plugin --template tilr-dev/plugin-template --clone`),
+then `npm install && npx tilr-plugin init my-plugin`. Its name is in two places, `tilr.name` in
+package.json and `const NAME` in `src/index.ts`; `init` sets both.
+
 ```text
 package.json          name, version, tilr.name, the scripts below, dev dependencies
 build.mjs             optional: import { buildPlugin } from '@tilr-dev/plugin/build'; await buildPlugin({ … })
@@ -73,7 +78,9 @@ The bin the scripts call, run in the plugin repo:
 | --- | --- |
 | `tilr-plugin build [--watch] [--install] [--site DIR]` | `node build.mjs …` when the repo has one, else `buildPlugin()` with the defaults |
 | `tilr-plugin dev [--site DIR]` | `build --watch --install`: rebuild on every save, install each good build |
+| `tilr-plugin init <name> [--force]` | fills a fresh copy of the template repo in as the plugin `<name>`: package.json (name, `tilr.name`, version, URLs from the git `origin`), `const NAME` in `src/index.ts(x)`, README.md, AGENTS.md; `--force` for a repo that is not the template |
 | `tilr-plugin install-site [--site DIR]` | `dist/` → `plugins/<name>/` of the Tilr site, the name appended to `plugins.json` |
+| `tilr-plugin uninstall-site [--site DIR] [name]` | `name` (default: the repo's) out of `plugins.json`, then `plugins/<name>/` removed; a no-op when it is not there |
 
 The site is `--site DIR`, else `$TILR_SITE`, else `site:` in the app's config, else the app's
 default folder (README, Installing into the site folder). Installing refuses a site without the
