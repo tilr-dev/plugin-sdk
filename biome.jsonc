@@ -13,8 +13,7 @@
       "!**/api",
       "!**/test-results",
       "!**/playwright-report",
-      "!**/package-lock.json",
-      "!!templates/plugin/biome.json"
+      "!**/package-lock.json"
     ]
   }
 }

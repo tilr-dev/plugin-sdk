@@ -97,10 +97,8 @@ src/**/*.test.ts      optional: unit tests (node --test)
 }
 ```
 
-The template repo is the source of these files. `templates/plugin/` in this package is an older
-copy of the config files (`gitignore` is `.gitignore`, npm does not pack that name;
-`package.fragment.json` is what to merge into package.json), kept for now and to be removed. With
-lefthook as a dev dependency of the plugin repo.
+The [template repo](https://github.com/tilr-dev/plugin-template) has all of these, with lefthook
+as a dev dependency.
 
 If a unit test imports the built `dist/index.js`, `test:unit` becomes `tilr-plugin build && node
 --import @tilr-dev/plugin/test/node --test 'src/**/*.test.ts'`: the hook resolves `'tilr'`,
@@ -226,7 +224,6 @@ tools/          build-plugin, tilr-plugin, init-plugin, verify, install-site, pa
                 playwright, global-setup; *.test.mjs are their unit tests
 scripts/        sync-runtime.mjs (site/ from web), api-sync.mjs (api/ against web), prepare.mjs (git hooks)
 presets/        biome, lefthook, commitlint, jscpd, knip: shipped, and used by this repo too
-templates/      plugin/: an older copy of a plugin repo's config files (the template repo is the source)
 .github/        ci.yml, release.yml (this repo), plugin.yml (the reusable CI of plugin repos)
 docs/           plugin-sdk.md, GUIDELINES.md, SDK.md
 site/           the core page, copied from web by `npm run sync:runtime` (committed, packed)
