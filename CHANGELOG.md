@@ -5,6 +5,19 @@ in a plugin refers to. The contract is `api/` (README, Keeping api/ and site/ in
 the version is 0.x, a minor bump may break plugins (`^0.1.0` accepts 0.1.x only). Entries before
 0.1.14 are in the core repo's (web/) CHANGELOG, where the package used to live.
 
+## [0.2.0](https://github.com/tilr-dev/plugin-sdk/compare/v0.1.16...v0.2.0) (2026-10-16)
+
+
+### ⚠ BREAKING CHANGES
+
+* @tilr-dev/plugin/eslint (eslint.base.js) is gone. A plugin repo replaces eslint.config.js with an .oxlintrc.json that extends ./node_modules/@tilr-dev/plugin/presets/oxlint.json and lists its own ignorePatterns, swaps eslint, @eslint/js and typescript-eslint for oxlint and oxlint-tsgolint, moves to typescript 7, and switches to the solution tsconfig layout: tsconfig.json → tsconfig.src.json + tsconfig.test.json.
+* the package no longer ships templates/plugin/. Start a plugin from https://github.com/tilr-dev/plugin-template and run tilr-plugin init.
+
+### Features
+
+* tilr-plugin init and uninstall-site ([#7](https://github.com/tilr-dev/plugin-sdk/issues/7)) ([d96f7ea](https://github.com/tilr-dev/plugin-sdk/commit/d96f7eaa40e2c8a668594b07bde0e2b27036cba7))
+* TypeScript 7 and oxlint instead of ESLint ([#9](https://github.com/tilr-dev/plugin-sdk/issues/9)) ([99d49cc](https://github.com/tilr-dev/plugin-sdk/commit/99d49cc5e84bf50694d80903fd6a6ddc04683f30))
+
 ## [0.1.16](https://github.com/tilr-dev/plugin-sdk/compare/v0.1.15...v0.1.16) (2026-10-15)
 
 
