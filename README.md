@@ -333,7 +333,7 @@ attribution lines); **pre-push** runs `npm run verify`.
 CI (`.github/workflows/`): `ci.yml` runs `verify --full --skip api` on Node 22 and 24 on
 every pull request and push to main (everything, with the unit tests that need `site/` and
 `npm pack --dry-run`, but `api:check`, which needs web's sources); `plugin.yml` is
-`verify:full` for plugin repos (`uses: tilr-dev/plugin-sdk/.github/workflows/plugin.yml@v0`,
+`verify:full` for plugin repos (`uses: tilr-dev/plugin-sdk/.github/workflows/plugin.yml@v0.2.0`, pinned to a release tag and bumped by Dependabot,
 input `node-version`; the SDK comes from npm with `site/` in it); `release.yml` is
 release-please and the npm publish of each release (Releasing). Workflows have minimal
 `permissions`, no `pull_request_target`, and actions pinned by commit SHA. Dependabot
