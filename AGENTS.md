@@ -29,7 +29,11 @@ you commit is published. README.md says what is where; docs/ has the details.
   promises. Complexity ≤ 15, depth ≤ 4, params ≤ 4.
 - A disable comment names its rules and a reason: `// oxlint-disable-next-line rule -- why`
   (`tools/disable-comments.mjs`, in the lint step). An unused one is an error. Disable one line
-  for a real reason, never a file to make a warning go away.
+  for a real reason, never a file to make a warning go away: a range `/* oxlint-disable rule -- why */`
+  needs a later `/* oxlint-enable rule */`, and one left open to the end of the file (a whole-file
+  disable) fails, as does an enable with nothing to enable or a rule disabled twice. The check finds
+  directives by text, not by parsing: a string holding `//` then `oxlint-disable…` counts too, so
+  split such a string.
 - `api/` is the plugin contract: it changes only through `npm run api:sync` from the core repo,
   with a `tilrApi` bump in a `feat` commit (README, Keeping api/ and site/ in sync, Versions).
   `site/` changes only through `npm run sync:runtime`. CHANGELOG.md is release-please's.

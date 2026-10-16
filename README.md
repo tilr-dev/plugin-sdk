@@ -306,7 +306,7 @@ is what a human, the git hooks and CI run, so green locally means green in CI. I
 | step | tool | what it catches |
 | --- | --- | --- |
 | format | Biome, `biome format` (format only) | style; `npm run format` fixes it |
-| lint | oxlint, type-aware through oxlint-tsgolint (`presets/oxlint.json`), then `tools/disable-comments.mjs` | `any`, `!`, unexplained ts-ignore, dropped promises, complexity > 15, depth > 4, params > 4, unused disables, disables without the rule or a ` -- reason`; warnings: file length, magic numbers |
+| lint | oxlint, type-aware through oxlint-tsgolint (`presets/oxlint.json`), then `tools/disable-comments.mjs` | `any`, `!`, unexplained ts-ignore, dropped promises, complexity > 15, depth > 4, params > 4, unused disables, disables without the rule or a ` -- reason`, whole-file disables (a range disable without its enable); warnings: file length, magic numbers |
 | types | `tsc --noEmit -p` (tsconfig.src.json, tsconfig.test.json) | types |
 | api | `npm run api:check` (when the repo has it) | an unnoticed change of the public contract |
 | unit | `npm run test:unit` | logic |

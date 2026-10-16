@@ -158,10 +158,26 @@ describe('the plan', () => {
   })
 
   test('lint: oxlint, type-aware, then the disable-comment check of the same files', () => {
-    const [oxlint, comments] = step('lint', { root: fixture() }).cmds
+    const [oxlint, comments] = step('lint', { root: fixture({}, { '.oxlintrc.json': '{}' }) }).cmds
     assert.match(oxlint[1][0], /node_modules\/oxlint\/bin\/oxlint$/)
     assert.deepEqual(args(oxlint), ['--type-aware', '.'])
     assert.deepEqual(comments, [process.execPath, [join(KIT, 'tools', 'disable-comments.mjs'), '.']])
+  })
+
+  test('lint: the repo needs an oxlint config (without one oxlint passes on its defaults)', () => {
+    assert.match(step('lint', { root: fixture() }).missing, /^no \.oxlintrc\.json: add one with \{ "extends"/)
+    const eslint = step('lint', { root: fixture({}, { 'eslint.config.js': 'export default []' }) }).missing
+    assert.match(eslint, /oxlint does not read eslint\.config\.js: replace it with a \.oxlintrc\.json .*\(README\)$/)
+    for (const config of ['.oxlintrc.json', '.oxlintrc.jsonc', 'oxlint.config.ts', 'oxlint.config.mts']) {
+      assert.equal(step('lint', { root: fixture({}, { [config]: '{}' }) }).cmds.length, 2, config)
+    }
+    const r = recorder()
+    const root = fixture({}, { 'biome.json': '{}' })
+    assert.equal(runHook('pre-commit', ['a.ts'], { root, env: fakeBin('gitleaks'), ...r }), false)
+    assert.ok(
+      r.lines.some(line => line.includes('error: no .oxlintrc.json')),
+      r.lines.join('\n'),
+    )
   })
 
   test('the tools resolve from the repo first, then from this package', () => {
@@ -232,7 +248,7 @@ describe('running', () => {
 
 describe('hooks', () => {
   test('pre-commit formats the staged files, lints the scripts among them, scans the staged diff', () => {
-    const root = fixture({ name: 'p' }, { 'biome.json': '{}' })
+    const root = fixture({ name: 'p' }, { 'biome.json': '{}', '.oxlintrc.json': '{}' })
     const r = recorder()
     assert.equal(
       runHook('pre-commit', ['src/a.ts', 'README.md', 'b.mjs'], { root, env: fakeBin('gitleaks'), ...r }),

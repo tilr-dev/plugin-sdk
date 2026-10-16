@@ -231,9 +231,15 @@ if site/ is missing (a `file:`-linked SDK that was never built).
   knip preset counts `oxlint` and `oxlint-tsgolint` as used (a repo's own knip.json says so too).
 - **Disable comments** — `// oxlint-disable-next-line rule -- why`: a disable comment (`oxlint-`
   or `eslint-disable`, `-line`, `-next-line`, line or block) names its rules and gives a reason
-  after ` -- `. oxlint has no rule for that; the lint step runs `tools/disable-comments.mjs` after
-  oxlint, on the files oxlint lints (all of them, or the staged ones in the pre-commit hook), and
-  fails with `file:line: oxlint-disable-next-line without a reason: …`.
+  after ` -- `. A range `/* oxlint-disable rule -- why */` needs a later `/* oxlint-enable rule */`:
+  one left open to the end of the file is a whole-file disable, which is not allowed; an enable
+  with nothing to enable and a rule disabled twice fail too. oxlint has no rule for that; the lint
+  step runs `tools/disable-comments.mjs` after oxlint, on the files oxlint lints (all of them, or
+  the staged ones in the pre-commit hook), and fails with `file:line: oxlint-disable-next-line
+  without a reason: …`. It finds directives by text right after a `//` or `/*`, not with a
+  parser, so a string holding one counts too (split the string), and JSX or a division cannot hide a
+  real one. The
+  lint step needs the repo's `.oxlintrc.json` (without one oxlint passes on its defaults).
 
 ## Runtime helpers
 

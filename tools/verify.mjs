@@ -33,7 +33,7 @@
 //   hook commit-msg <file>    commitlint (Conventional Commits, no AI attribution)
 import { spawnSync } from 'node:child_process'
 import { accessSync, constants, existsSync, readFileSync } from 'node:fs'
-import { delimiter, dirname, join, resolve } from 'node:path'
+import { basename, delimiter, dirname, join, resolve } from 'node:path'
 import { performance } from 'node:perf_hooks'
 import { fileURLToPath } from 'node:url'
 
@@ -48,6 +48,10 @@ export const RUNTIME_STEPS = ['api', 'e2e', 'pack']
 const NO_RUNTIME = 'needs core page (web), --no-runtime'
 
 const BIOME_CONFIGS = ['biome.json', 'biome.jsonc']
+/** The configs oxlint finds in a repo's root by itself (oxlint 1.x). */
+const OXLINT_CONFIGS = ['.oxlintrc.json', '.oxlintrc.jsonc', 'oxlint.config.ts', 'oxlint.config.mts']
+/** The configs of ESLint, which oxlint does not read. */
+const ESLINT_CONFIGS = ['eslint.config.js', 'eslint.config.mjs', 'eslint.config.cjs', 'eslint.config.ts']
 const JSCPD_CONFIGS = ['.jscpd.json']
 const KNIP_CONFIGS = [
   'knip.json',
@@ -172,8 +176,21 @@ function types(root) {
 /** The disable-comment check (tools/disable-comments.mjs) of `paths`, all the linted files with none. */
 const DISABLE_COMMENTS = join(KIT, 'tools', 'disable-comments.mjs')
 
-/** oxlint (type-aware) with `args`, then the disable-comment check of `paths`. */
+/** Why the repo has no oxlint config: without one oxlint lints with its defaults and passes
+ *  what the preset would fail. */
+function noOxlintConfig(root) {
+  const eslint = firstFile(root, ESLINT_CONFIGS)
+  const extend = 'with { "extends": ["./node_modules/@tilr-dev/plugin/presets/oxlint.json"] }'
+  if (eslint) {
+    return `no .oxlintrc.json, and oxlint does not read ${basename(eslint)}: replace it with a .oxlintrc.json ${extend} (README)`
+  }
+  return `no .oxlintrc.json: add one ${extend} (README)`
+}
+
+/** oxlint (type-aware) with `args`, then the disable-comment check of `paths`; the repo's oxlint
+ *  config is required. */
 function lint(args, paths, root) {
+  if (!firstFile(root, OXLINT_CONFIGS)) return { missing: noOxlintConfig(root) }
   const oxlint = node('oxlint', 'oxlint', ['--type-aware', ...args, ...paths], root)
   if (!oxlint.cmds) return oxlint
   return { cmds: [...oxlint.cmds, [process.execPath, [DISABLE_COMMENTS, ...paths]]] }

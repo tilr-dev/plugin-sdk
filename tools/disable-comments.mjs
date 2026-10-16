@@ -1,11 +1,19 @@
 // `node tools/disable-comments.mjs [paths…]`, run by the lint step of `tilr-plugin verify` and of
-// the pre-commit hook: turning a lint rule off says which rule and why (the repo standard, §3).
+// the pre-commit hook: turning a lint rule off says which rule and why, and never for a whole
+// file (the repo standard, §3).
 //
 //   // oxlint-disable-next-line no-console -- the CLI's output is its interface
 //
+//   /* oxlint-disable max-lines -- the generated table below */
+//   …
+//   /* oxlint-enable max-lines */
+//
 // Every `oxlint-disable`, `oxlint-disable-line`, `oxlint-disable-next-line` (and the `eslint-…`
 // spellings, which oxlint honours too), as a line or a block comment, needs the rules it turns
-// off and a ` -- reason` after them. oxlint itself reports a disable that suppresses nothing
+// off and a ` -- reason` after them. An `oxlint-disable` (a range, not one line) needs a later
+// `oxlint-enable` of the same rules: a disable left open to the end of the file is a whole-file
+// disable, which is not allowed. An enable of a rule that is not disabled, and a disable of a rule
+// that already is, are problems too. oxlint itself reports a disable that suppresses nothing
 // (`reportUnusedDisableDirectives` in the preset); this is the part it has no rule for.
 //
 // The files are the ones oxlint lints (`oxlint --debug=files`, with the repo's .oxlintrc.json
@@ -18,116 +26,105 @@ import { fileURLToPath } from 'node:url'
 import { packageBin } from './verify.mjs'
 
 const KIT = fileURLToPath(new URL('..', import.meta.url))
-const QUOTES = new Set(["'", '"', '`'])
-/** A `/` after one of these (or at the start) begins a regex literal, not a division. */
-const BEFORE_REGEX = new Set([...'(,=:[!&|?{};+-*%<>~^'])
-const KEYWORDS_BEFORE_REGEX = new Set(['return', 'typeof', 'case', 'do', 'else', 'in', 'of', 'void', 'yield'])
-const KEYWORDS_MORE = new Set(['await', 'delete', 'throw', 'new', 'instanceof'])
-/** The directive at the start of a comment, and what follows it. */
-const DIRECTIVE = /^\s*((?:oxlint|eslint)-disable(?:-next-line|-line)?)(?=\s|$)([\s\S]*)$/
+/** A directive: a comment opener (`//`, `/*`, `/**`), then the directive right after it (a block
+ *  comment's may be on a later line). No tokenizer: a JS/TS/JSX scanner that tells comments from
+ *  strings, regex literals, divisions and JSX text misses real directives where it guesses wrong.
+ *  This errs the other way: a string holding a comment opener and then a directive counts too,
+ *  and fails loudly; split the string between the two (the tests spell the opener `%%`). */
+const DIRECTIVE = /(\/\/[ \t]*|\/\*\*?\s*)((?:oxlint|eslint)-(?:disable(?:-next-line|-line)?|enable))(?![\w-])/g
 /** Between the rules and the reason: ` -- ` (ESLint's separator: two or more dashes, spaced). */
 const SEPARATOR = /\s-{2,}(?:\s|$)/
+/** A range disable's or enable's rule list that names none: all rules. */
+const ALL = ''
 
-/** The index after a quoted string or template starting at `i`. A '…' or "…" string ends at the
- *  line's end at the latest, so a quote misread elsewhere costs one line, not the file. */
-function skipQuoted(source, i) {
-  const quote = source[i]
-  let j = i + 1
-  while (j < source.length) {
-    const c = source[j]
-    if (c === '\\') j += 2
-    else if (c === quote) return j + 1
-    else if (c === '\n' && quote !== '`') return j
-    else j++
-  }
-  return source.length
+/** A directive's text after its kind: the rest of the line, or of the block comment. */
+function bodyAt(source, start, block) {
+  const end = block ? source.indexOf('*/', start) : source.indexOf('\n', start)
+  return source.slice(start, end === -1 ? source.length : end)
 }
 
-/** The index after a regex literal starting at `i` (a `/` inside […] does not end it). */
-function skipRegex(source, i) {
-  let inClass = false
-  for (let j = i + 1; j < source.length; j++) {
-    const c = source[j]
-    if (c === '\\') j++
-    else if (c === '[') inClass = true
-    else if (c === ']') inClass = false
-    else if (c === '\n') return j
-    else if (c === '/' && !inClass) return j + 1
-  }
-  return source.length
+/** A directive's rules and reason from the text after its kind ({ rules: '', reason: '' } if none). */
+export function parseBody(body) {
+  const [rules, ...reason] = body.split(SEPARATOR)
+  return { rules: rules.trim(), reason: reason.join(' ').trim() }
 }
 
-/** Whether a `/` whose last code character before it is at `prev` (-1: none) starts a regex. */
-function regexAllowed(source, prev) {
-  if (prev < 0 || BEFORE_REGEX.has(source[prev])) return true
-  const word = /[\w$]+$/.exec(source.slice(0, prev + 1))?.[0]
-  return !!word && (KEYWORDS_BEFORE_REGEX.has(word) || KEYWORDS_MORE.has(word))
-}
-
-/** The comment starting at `i` (`//` or `/*`): its text without the delimiters, and where it ends. */
-function commentAt(source, i) {
-  const block = source[i + 1] === '*'
-  const close = block ? source.indexOf('*/', i + 2) : source.indexOf('\n', i)
-  if (close === -1) return { text: source.slice(i + 2), end: source.length }
-  return { text: source.slice(i + 2, close), end: block ? close + 2 : close }
-}
-
-/** `found` ([{ text, at }], in order) with the 1-based line of each `at` instead. */
-function withLines(source, found) {
+/** The directives of a source: [{ kind, rules, reason, line }], in order, `line` 1-based where
+ *  the directive's kind is. */
+export function directives(source) {
+  const found = []
   let line = 1
   let counted = 0
-  return found.map(({ text, at }) => {
+  for (const match of source.matchAll(DIRECTIVE)) {
+    const at = match.index + match[1].length
     for (; counted < at; counted++) if (source[counted] === '\n') line++
-    return { text, line }
-  })
-}
-
-/** The comments of a JS/TS source: [{ text, line }], `text` without the comment's delimiters,
- *  `line` 1-based where the comment starts. Strings, templates and regex literals are skipped,
- *  so `'// oxlint-disable'` in a string is not a comment. */
-export function comments(source) {
-  const found = []
-  /** The last character of code before `i`: whether a `/` there divides or starts a regex. */
-  let prev = -1
-  let i = 0
-  while (i < source.length) {
-    const c = source[i]
-    if (c === '/' && (source[i + 1] === '/' || source[i + 1] === '*')) {
-      const { text, end } = commentAt(source, i)
-      found.push({ text, at: i })
-      i = end
-      continue
-    }
-    let end = i + 1
-    if (QUOTES.has(c)) end = skipQuoted(source, i)
-    else if (c === '/' && regexAllowed(source, prev)) end = skipRegex(source, i)
-    if (end > i + 1 || !/\s/.test(c)) prev = end - 1
-    i = end
-  }
-  return withLines(source, found)
-}
-
-/** A disable directive in a comment's text: { kind, rules, reason }, or null for other comments. */
-export function parseDirective(text) {
-  const match = DIRECTIVE.exec(text)
-  if (!match) return null
-  const [rules, ...reason] = match[2].split(SEPARATOR)
-  return { kind: match[1], rules: rules.trim(), reason: reason.join(' ').trim() }
-}
-
-/** What is wrong with the disable comments of `source`: [{ line, message }]. */
-export function problems(source) {
-  const found = []
-  for (const { text, line } of comments(source)) {
-    const directive = parseDirective(text)
-    if (!directive) continue
-    const { kind, rules, reason } = directive
-    if (!rules) found.push({ line, message: `${kind} names no rule: list the rules it turns off` })
-    if (!reason) {
-      found.push({ line, message: `${kind} without a reason: write it as "${kind} <rule> -- <why>"` })
-    }
+    const body = bodyAt(source, at + match[2].length, match[1].startsWith('/*'))
+    found.push({ kind: match[2], ...parseBody(body), line })
   }
   return found
+}
+
+/** The rules a range directive names, ALL for none. */
+const ruleList = rules => (rules ? rules.split(',').map(rule => rule.trim()) : [ALL])
+/** A rule as a message names it. */
+const named = rule => (rule === ALL ? '(all rules)' : rule)
+const isEnable = ({ kind }) => kind.endsWith('-enable')
+
+/** A disable's missing rules or reason: [{ line, message }]. */
+function undescribed({ kind, rules, reason, line }) {
+  const found = []
+  if (!rules) found.push({ line, message: `${kind} names no rule: list the rules it turns off` })
+  if (!reason) found.push({ line, message: `${kind} without a reason: write it as "${kind} <rule> -- <why>"` })
+  return found
+}
+
+/** Opens the rules of the range disable `directive` in `open` (rule -> its disable). */
+function disable(directive, open, found) {
+  for (const rule of ruleList(directive.rules)) {
+    const earlier = open.get(rule)
+    if (earlier) {
+      const message = `${directive.kind} ${named(rule)}: already disabled at line ${earlier.line}`
+      found.push({ line: directive.line, message })
+    } else open.set(rule, directive)
+  }
+}
+
+/** Closes the rules of the enable `directive` in `open`: all of them for one that names none. A
+ *  rule enabled inside a disable of all rules is fine (it turns that one back on). */
+function enable({ kind, rules, line }, open, found) {
+  const list = ruleList(rules)
+  if (list[0] === ALL && open.size) return open.clear()
+  for (const rule of list) {
+    if (!open.delete(rule) && !(rule !== ALL && open.has(ALL))) {
+      found.push({ line, message: `${kind} ${named(rule)} without a preceding disable: nothing to enable` })
+    }
+  }
+}
+
+/** The range disables of `list` left open to the end of the file, and the enables and repeated
+ *  disables that do not pair up: [{ line, message }]. */
+function unpaired(list) {
+  const found = []
+  const open = new Map()
+  for (const directive of list) {
+    if (isEnable(directive)) enable(directive, open, found)
+    else if (directive.kind.endsWith('-disable')) disable(directive, open, found)
+  }
+  for (const [rule, { kind, line }] of open) {
+    const enabler = `${kind.replace(/disable$/, 'enable')} ${rule}`.trim()
+    found.push({
+      line,
+      message: `${kind} ${named(rule)}: disable without a matching enable (whole-file disables are not allowed); end the range with "/* ${enabler} */"`,
+    })
+  }
+  return found
+}
+
+/** What is wrong with the disable comments of `source`: [{ line, message }], by line. */
+export function problems(source) {
+  const list = directives(source)
+  const found = [...list.filter(d => !isEnable(d)).flatMap(undescribed), ...unpaired(list)]
+  return found.sort((a, b) => a.line - b.line)
 }
 
 /** The files oxlint lints of `paths` (all of the repo's with none), relative to `root`. */
@@ -140,16 +137,23 @@ export function lintedFiles(paths, root) {
   return child.stdout.split('\n').filter(Boolean)
 }
 
-/** `file:line: problem` for each disable comment without its rules or reason in `files`. */
+/** `file:line: problem` for each disable comment problem in `files`. */
 export function check(files, { root = process.cwd(), read = file => readFileSync(join(root, file), 'utf8') } = {}) {
   return files.flatMap(file => problems(read(file)).map(({ line, message }) => `${file}:${line}: ${message}`))
 }
 
-/** The CLI: checks `paths` (or the whole repo) in `root`; resolves to the exit status. */
+/** The CLI: checks `paths` (or the whole repo: none, or `.`) in `root`; resolves to the exit
+ *  status. No file to check in the whole repo means oxlint's file list was misread: a failure,
+ *  not a pass. */
 export function main(paths, { root = process.cwd(), log = console.error } = {}) {
-  const found = check(lintedFiles(paths, root), { root })
+  const files = lintedFiles(paths, root)
+  if (!files.length && paths.every(path => path === '.')) {
+    log('oxlint listed no files to check (did its --debug=files output change?)')
+    return 1
+  }
+  const found = check(files, { root })
   for (const problem of found) log(problem)
-  if (found.length) log(`\n${found.length} disable comment(s) without the rule or the reason (" -- why")`)
+  if (found.length) log(`\n${found.length} disable comment problem(s) (tools/disable-comments.mjs)`)
   return found.length ? 1 : 0
 }
 
