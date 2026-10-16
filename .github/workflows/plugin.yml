@@ -1,6 +1,6 @@
 # The reusable CI of a plugin repo (repo standard, §9). A plugin's .github/workflows/ci.yml:
 #
-#   on: { pull_request: {}, push: { branches: [master] } }
+#   on: { pull_request: {}, push: { branches: [main] } }
 #   permissions: { contents: read }
 #   jobs:
 #     verify:

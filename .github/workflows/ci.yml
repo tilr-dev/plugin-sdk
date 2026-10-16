@@ -1,8 +1,8 @@
-# The SDK's CI: `tilr-plugin verify --full --skip api` on every PR and every push to master
+# The SDK's CI: `tilr-plugin verify --full --skip api` on every PR and every push to main
 # (repo standard, §9). site/ (the core page) is committed, so everything runs without a web
 # checkout (format, lint, types, unit with the site/ tests, dupes, unused, secrets, deps, pack)
 # except `api` (npm run api:check), which emits api/ from web's sources: run it locally with a
-# web checkout (README, Keeping api/ and site/ in sync). The job names stay as the master ruleset
+# web checkout (README, Keeping api/ and site/ in sync). The job names stay as the main ruleset
 # requires them ("verify (node N, no runtime)": no web runtime checkout).
 # Only `pull_request` (never pull_request_target): a PR's code runs without secrets.
 name: ci
@@ -10,7 +10,7 @@ name: ci
 on:
   pull_request:
   push:
-    branches: [master]
+    branches: [main]
 
 permissions:
   contents: read

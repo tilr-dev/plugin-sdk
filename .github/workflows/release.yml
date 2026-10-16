@@ -1,17 +1,24 @@
 # Releases (repo standard, §5): release-please keeps a release PR open from the Conventional
-# Commits on master (version bump + CHANGELOG); merging it tags vX.Y.Z and creates the GitHub
+# Commits on main (version bump + CHANGELOG); merging it tags vX.Y.Z and creates the GitHub
 # release, and `publish` then publishes that tag to npm.
 #
+# The release-please job acts as the org GitHub App tilr-bot (a short-lived installation token
+# from actions/create-github-app-token, scoped to this repository): the release PR is opened by
+# tilr-bot, not by the GITHUB_TOKEN, so CI runs on it like on any PR. There is no bypass: the
+# release PR goes through the same required checks, and merging it is the release approval.
+#
 # publish: npm trusted publishing (OIDC, no NPM_TOKEN) with provenance. npm's trusted publisher
-# for @tilr-dev/plugin is bound to this file (release.yml) and the `npm` environment, whose
-# required reviewer approves each run. It needs no web checkout: site/ (the core page) is
-# committed, and `api` (api:check, web's sources) is skipped as in ci.yml. It runs in this
-# workflow, not on `release: published`: events of the GITHUB_TOKEN start no other workflow.
+# for @tilr-dev/plugin is bound to this repository, this file (release.yml) and the `npm`
+# environment. That environment is restricted to `main` and has no required reviewer: the
+# merged release PR is the gate. It needs no web checkout: site/ (the core page) is committed,
+# and `api` (api:check, web's sources) is skipped as in ci.yml. It runs in this workflow, gated
+# on release-please's `release_created`, rather than on `release: published`, so the trusted
+# publisher stays bound to release.yml.
 name: release
 
 on:
   push:
-    branches: [master]
+    branches: [main]
 
 permissions: {}
 
@@ -23,15 +30,24 @@ jobs:
   release-please:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # the release PR's branch, the tag, the GitHub release
-      pull-requests: write # the release PR
+      contents: read # all writes go through the tilr-bot token below
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
+      - id: app
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.TILR_BOT_CLIENT_ID }}
+          private-key: ${{ secrets.TILR_BOT_PRIVATE_KEY }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write # the release PR's branch, the tag, the GitHub release
+          permission-pull-requests: write # the release PR
+          permission-issues: write # release-please's labels on the release PR
       - id: release
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         with:
+          token: ${{ steps.app.outputs.token }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
