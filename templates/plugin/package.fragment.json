@@ -14,6 +14,15 @@
     "prepare": "lefthook install"
   },
   "devDependencies": {
-    "lefthook": "^2.2.2"
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.64.0",
+    "@tilr-dev/plugin": "^0.1.16",
+    "@types/node": "^26.6.4",
+    "cordis": "npm:@deepseek-ai/cordis@4.0.1",
+    "esbuild": "^0.28.2",
+    "eslint": "^10.12.0",
+    "lefthook": "^2.2.2",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.71.1"
   }
 }

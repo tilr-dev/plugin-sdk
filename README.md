@@ -6,7 +6,7 @@ root context plus hot-reloadable plugins; a plugin is one `index.js` the page lo
 
 - the **plugin API's types** (`api/`, what `'tilr'`, `'tilr/react'`, `'tilr/ui'`, `'tilr/native'`
   are for tsc),
-- the **shared build** (`@tilr-dev/plugin/build`) and the **CLI** (`tilr-plugin`, `tilr`),
+- the **shared build** (`@tilr-dev/plugin/build`) and the **CLI** (`tilr-plugin`),
 - the **e2e harness** (`@tilr-dev/plugin/test`) and the **built core page** it serves (`site/`),
 - the **shared configs**: tsconfig, eslint, Playwright, and the repo standard's checks
   (`tilr-plugin verify`) with their presets: Biome (format), lefthook (git hooks), commitlint,
@@ -20,20 +20,37 @@ design it implements), [CHANGELOG.md](CHANGELOG.md).
 
 ## Install
 
-Node >= 22.18. In a plugin repo, as a dev dependency, with its peers:
+Node >= 22.18.
 
-```sh
-npm install -D @tilr-dev/plugin cordis@npm:@deepseek-ai/cordis@4.0.1 esbuild typescript \
-  eslint @eslint/js typescript-eslint @playwright/test @types/node
-npx playwright install webkit      # once per machine, for the e2e tests
-```
+**A new plugin:** start from `templates/plugin/` (see A plugin repo below); its package.json
+already lists every dev dependency, so `npm install` is all it takes.
 
-`@types/react` too if the plugin renders with React. Only `cordis` is a required peer; the others
-are optional, for the build, the lint config and the harness.
+**An existing project:** pick what you need.
+
+- Types and the build only:
+
+  ```sh
+  npm install -D @tilr-dev/plugin cordis@npm:@deepseek-ai/cordis@4.0.1 esbuild typescript
+  ```
+
+- The whole kit (build, lint, e2e tests, `tilr-plugin verify`):
+
+  ```sh
+  npm install -D @tilr-dev/plugin cordis@npm:@deepseek-ai/cordis@4.0.1 esbuild typescript \
+    eslint @eslint/js typescript-eslint @playwright/test @types/node lefthook
+  npx playwright install webkit      # once per machine
+  ```
+
+Add `@types/react` if the plugin renders with React.
+
+Why the list: npm installs a package's required peers, but not its optional ones, and only
+`cordis` is required here. It has to be named anyway: Tilr uses the `@deepseek-ai/cordis` build
+under the name `cordis`, which npm cannot pick on its own (the `cordis` package on npm is the
+upstream one, without a 4.0.1).
 
 ## A plugin repo
 
-Start from the template repo (`plugins/template`), not from another plugin. A repo that uses the
+Start from the template (`templates/plugin/` in this package), not from another plugin. A repo that uses the
 whole kit is its sources, its tests and one-line config files:
 
 ```text
