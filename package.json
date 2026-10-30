@@ -114,12 +114,12 @@
     "pack:check": "npm pack --dry-run"
   },
   "dependencies": {
-    "@biomejs/biome": "^2.5.15",
-    "@commitlint/cli": "^21.2.3",
+    "@biomejs/biome": "^2.6.3",
+    "@commitlint/cli": "^21.2.4",
     "@commitlint/config-conventional": "^21.2.3",
     "conventional-changelog-conventionalcommits": "^10.4.1",
-    "jscpd": "^5.4.1",
-    "knip": "^6.41.0"
+    "jscpd": "^5.4.2",
+    "knip": "^6.43.0"
   },
   "peerDependencies": {
     "@playwright/test": "^1.64.0",
